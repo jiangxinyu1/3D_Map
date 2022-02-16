@@ -1,0 +1,17 @@
+**/build*
+**/buildpc*
+**/build/*
+**/buildpc/*
+**/devel*
+**/devel/*
+**/*build-*
+*.swp
+*.kdev4
+*.user
+**/.idea
+*.DS_Store
+.tags
+.tags_sorted_by_file
+.ycm*
+.vscode/
+

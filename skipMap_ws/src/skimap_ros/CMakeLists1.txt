@@ -1,0 +1,37 @@
+cmake_minimum_required(VERSION 2.8.3)
+project(skimap_lcm)
+
+set( CMAKE_BUILD_TYPE "Release" )
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
+
+find_package(lcm REQUIRED)
+
+# Find modules
+set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/Modules ${CMAKE_MODULE_PATH})
+
+#Eigen3
+find_package(Eigen3 REQUIRED)
+
+#OpenCV
+find_package(OpenCV REQUIRED COMPONENTS core imgproc)
+if(OpenCV_INCLUDE_DIRS)
+  include_directories(${OpenCV_INCLUDE_DIRS})
+endif(OpenCV_INCLUDE_DIRS)
+
+#BOOST
+find_package(Boost 1.50.0 REQUIRED COMPONENTS random timer system)
+if(Boost_FOUND)
+  include_directories(${Boost_INCLUDE_DIR}) # cached
+endif(Boost_FOUND)
+
+
+#########################
+# SKIMAP LIBRARY
+#########################
+include_directories(
+  include/
+  ${Thirdparty_DIR}/include/lcm_msgs
+)
+
+add_executable(skimap_lcm src/nodes/skimap_lcm.cpp)
+target_link_libraries(skimap_lcm ${OpenCV_LIBRARIES} ${LCM_LIBRARY})
