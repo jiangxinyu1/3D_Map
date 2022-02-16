@@ -116,16 +116,15 @@ public:
         _resolution_z(resolution), _voxel_counter(0), _xlist_counter(0),
         _ylist_counter(0), _bytes_counter(0), _batch_integration(false),
         _initialized(false), _self_concurrency_management(false),
-        hit_table_(ComputeLookupTableToApplyOdds(Odds(0.55))),
-        miss_table_(ComputeLookupTableToApplyOdds(Odds(0.46))) ,
-        coordinatesToIndexTable_(preComputeCoordinatesToIndexTable_(resolution,1600))
-        {
+        hit_table_(ComputeLookupTableToApplyOdds(Odds(0.5))),
+        miss_table_(ComputeLookupTableToApplyOdds(Odds(0.5))) ,
+        coordinatesToIndexTable_(preComputeCoordinatesToIndexTable_(resolution,20000))
+  {
     initialize(_min_index_value, _max_index_value);
-    for (int i = 0 ;i<1600;i++ )
+    for (int i = 0; i<20000; i++)
     {
       std::cout << "," << coordinatesToIndexTable_[i] ;
     }
-    
   }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -252,7 +251,7 @@ public:
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  virtual V *find(D x, D y, D z) 
+  virtual V *find_O(D x, D y, D z) 
   {
     K ix, iy, iz;
     if (coordinatesToIndex(x, y, z, ix, iy, iz)) 
@@ -262,6 +261,15 @@ public:
     return NULL;
   }
 
+  virtual V *find(D x, D y, D z) 
+  {
+    K ix, iy, iz;
+    if (integrateVoxelWithTable(x*1000, y*1000, z*1000, ix, iy, iz)) 
+    {
+      return find(ix, iy, iz);
+    }
+    return NULL;
+  }
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   /**
@@ -319,6 +327,24 @@ public:
       return true;
     }
     return false;
+  }
+
+  int16_t getVal(int k) 
+  {
+      if (k < 0)
+      {
+        return (K)-coordinatesToIndexTable_.at(-k);
+      }
+      return coordinatesToIndexTable_.at(k);
+  }
+
+
+  bool integrateVoxelWithTable(int x, int  y, int z, K& ix , K& iy , K& iz) 
+  {
+    ix = (K)getVal(x);
+    iy = (K)getVal(y);
+    iz = (K)getVal(z);
+    return true;
   }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -950,19 +976,18 @@ public:
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   //  单位mm  ：vector的index代表mm，里面存储所对应的index 
-  std::vector<uint16_t> preComputeCoordinatesToIndexTable_(D resolution ,const int Len)
+  std::vector<int16_t> preComputeCoordinatesToIndexTable_(D resolution ,const int Len)
   {
-    std::vector<uint16_t> table(Len,0);
+    std::vector<int16_t> table(Len,0);
     for (int mm = 0 ;  mm < Len; mm++)
     {
       auto m = mm / 1000.0;
-      uint16_t index = floor(m/resolution);
+      int16_t index = floor(m/resolution);
       // if ( index < Max_Index_Value)
       // {
         table[mm] = index;
       // }
     }
-    
     return table;
   }
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1016,7 +1041,7 @@ protected:
   const std::vector<u_int16_t> hit_table_;
   const std::vector<u_int16_t> miss_table_;
   const std::vector<uint16_t> indexToCoordinatesTable_;
-  const std::vector<uint16_t> coordinatesToIndexTable_;
+  const std::vector<int16_t> coordinatesToIndexTable_;
   
 }; // class SkipListMapV2
 } // namespace skimap

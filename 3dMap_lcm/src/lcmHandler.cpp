@@ -1,7 +1,7 @@
 /*
  * @Author: your name
  * @Date: 2022-01-24 18:28:58
- * @LastEditTime: 2022-02-16 17:05:06
+ * @LastEditTime: 2022-02-16 20:15:11
  * @LastEditors: Please set LastEditors
  * @Description: 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  * @FilePath: /test_lcm/src/lcmHandler.cpp
@@ -121,6 +121,7 @@ void integrateMeasurement1(const std::vector<std::vector<int16_t>>& map_points_i
 
   // 遍历 map_points_index，更新 hit point 的概率值
   auto updateHitStartTime = getTime();
+  
   for (int i = 0; i < map_points_index.size(); i++) 
   {
     point_num ++;
@@ -132,7 +133,8 @@ void integrateMeasurement1(const std::vector<std::vector<int16_t>>& map_points_i
       valid_index.push_back(i);
       voxel_index[(map_points_index[i][0] + 1000) * 1000 + map_points_index[i][1]].push_back(map_points_index[i]);
     }
-  }
+  } //for 
+
   auto updateHitEndTime = getTime();
   std::cout << "[integrateMeasurement1] : update hit time = " << updateHitEndTime - updateHitStartTime << "\n";
 
@@ -165,13 +167,22 @@ void getMeasurePointsFromPointCloud(const lcm_sensor_msgs::PointCloud &msg,
 {
   for (int i = 0 ;  i < msg.points.size(); i++)
   {
+    const double xThr = depthThr*1.5;
     ColorPoint cp;
     cp.point.x = msg.points[i].x;
     cp.point.y = msg.points[i].y;
     cp.point.z = msg.points[i].z;
-    // 过滤掉一些有问题的数据
-    if ((cp.point.x == 0 && cp.point.y == 0 && cp.point.z == 0)
-         || cp.point.z > depthThr )
+    //  过滤掉相机系下的深度值的点
+    if ((cp.point.x == 0 && cp.point.y == 0 && cp.point.z == 0) 
+         || cp.point.z > depthThr 
+         || std::fabs(cp.point.x) > xThr )
+    {
+      continue;
+    }
+    // 过滤掉在map系下的高度值不合适的点
+
+    cp.point.y = msg.points[i].y - 0.046;
+    if ( cp.point.y < -0.1 || cp.point.y > 0)
     {
       continue;
     }
@@ -234,7 +245,7 @@ void fillVisualizationMarkerWithVoxels( lcm_visualization_msgs::Marker &voxels_m
 
   for (int i = 0; i < voxels.size(); i++) 
   {
-    if(ValueToProbability(voxels[i].data->tableValue) < 0.55)
+    if(ValueToProbability(voxels[i].data->tableValue) < 0.8)
       continue;
     /**
      * Create 3D Point from 3D Voxel
@@ -407,34 +418,33 @@ void lcmHandler::skiMapBuilderThread()
     */
     auto makeMapPointsStartTime = getTime();
 
-    // std::vector<tf::Vector3> map_points;  // map系下的点云
-    std::vector<tf::Vector3> map_points;
-    std::vector<VoxelDataColor> voxels;  // dianyun
+    std::vector<VoxelDataColor> voxels (measurement.points.size(),VoxelDataColor (0,255,0,1.0));
     std::vector<std::vector<int16_t>> map_points_index;
+    map_points_index.resize(measurement.points.size());
     tf::Vector3 base_to_camera (0,0,0);
     for (int i = 0; i < measurement.points.size(); i++) 
     {
       tf::Vector3 base_to_point(measurement.points[i].point.x, measurement.points[i].point.y, measurement.points[i].point.z);
       // base_to_point = base_to_camera * base_to_point;
+      // std::cout << base_to_point.y() << ",";
       
-      // std::cout << "[debug] : " << base_to_point.x()  << "," << base_to_point.y() << "," << base_to_point.z() << "\n"; 
       int16_t ix, iy, iz;
-      if(map->integrateVoxel(base_to_point.x(), base_to_point.y(), base_to_point.z(), ix, iy, iz))
-      {
-        map_points.push_back(base_to_point);
-        VoxelDataColor voxel_info(measurement.points[i].color[2], 
-                                                      measurement.points[i].color[1],
-                                                      measurement.points[i].color[0], 
-                                                      1.0);
-        voxels.push_back(voxel_info);
+      if(map->integrateVoxelWithTable((base_to_point.x()*1000), 
+                                                                (base_to_point.y()*1000), 
+                                                                (base_to_point.z()*1000), 
+                                                                ix, iy, iz))
+      {                               
         std::vector<int16_t> data{ix , iy , iz};
-        map_points_index.push_back(data);
+        map_points_index[i] = data;
       }
-    }
-    // std::cout << "[TEST] : TABLE = " << coordinatesToIndexTable_[222] << "\n";
+    } // for 
+
     // 将camera在map系下的原点位置存为整数
     int16_t ix, iy, iz;
-    map->integrateVoxel(base_to_camera.x(), base_to_camera.y(), base_to_camera.z(), ix, iy, iz);
+    map->integrateVoxelWithTable(base_to_camera.x()*1000, 
+                                                           base_to_camera.y()*1000, 
+                                                           base_to_camera.z()*1000, 
+                                                           ix, iy, iz);
     std::vector<int16_t> map_camera_index{ix , iy , iz};
 
     auto makeMapPointsEndTime = getTime();
