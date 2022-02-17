@@ -286,7 +286,6 @@ class SkipListMap
          */
     virtual bool integrateVoxel(D x, D y, D z, V *data)
     {
-        debugPrint("D");
         K ix, iy, iz;
         if (coordinatesToIndex(x, y, z, ix, iy, iz))
         {
@@ -305,7 +304,6 @@ class SkipListMap
          */
     virtual bool integrateVoxel(K ix, K iy, K iz, V *data)
     {
-      debugPrint("E");
         if (isValidIndex(ix, iy, iz))
         {
             if (_batch_integration)

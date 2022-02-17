@@ -1,7 +1,7 @@
 /*
  * @Author: your name
  * @Date: 2022-01-24 18:28:58
- * @LastEditTime: 2022-02-16 20:15:11
+ * @LastEditTime: 2022-02-17 10:29:18
  * @LastEditors: Please set LastEditors
  * @Description: 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  * @FilePath: /test_lcm/src/lcmHandler.cpp
@@ -454,7 +454,6 @@ void lcmHandler::skiMapBuilderThread()
     * 5  Map Integration
     */
     auto mapIntegrationStartTime_ = getTime();
-    debugPrint("integrateMeasurement1");
     integrateMeasurement1(map_points_index, voxels, map, map_camera_index);
     auto mapIntegrationEndTime_ = getTime();
     std::cout << "[skiMapBuilderThread]: integrateMeasurement  time =  "<<  mapIntegrationEndTime_ - mapIntegrationStartTime_ <<" \n";

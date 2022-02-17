@@ -118,12 +118,19 @@ public:
         _initialized(false), _self_concurrency_management(false),
         hit_table_(ComputeLookupTableToApplyOdds(Odds(0.55))),
         miss_table_(ComputeLookupTableToApplyOdds(Odds(0.46))) ,
-        coordinatesToIndexTable_(preComputeCoordinatesToIndexTable_(resolution,20000))
+        coordinatesToIndexTable_(preComputeCoordinatesToIndexTable_(resolution,(Max_Index_Value*resolution*1000))),
+        indexToCoordinatesTable_(preComputeIndexToCoordinatesTable_(resolution))
   {
     initialize(_min_index_value, _max_index_value);
-    for (int i = 0; i<20000; i++)
+    std::cout << "[coordinatesToIndexTable_] = \n";
+    for (int i = 0; i<Max_Index_Value*resolution*1000; i++)
     {
       std::cout << "," << coordinatesToIndexTable_[i] ;
+    }
+    std::cout << "[indexToCoordinatesTable_] = \n";
+    for (int i = 0; i<Max_Index_Value; i++)
+    {
+      std::cout << "," << indexToCoordinatesTable_[i] ;
     }
   }
 
@@ -290,7 +297,6 @@ public:
 
   virtual bool integrateVoxel(D x, D y, D z, V *data) 
   {
-    debugPrint("A");
     K ix, iy, iz;
     if (coordinatesToIndex(x, y, z, ix, iy, iz)) 
     {
@@ -302,9 +308,8 @@ public:
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  virtual bool integrateVoxel(D x, D y, D z, K& ix , K& iy , K& iz) {
-    
-    debugPrint("B");
+  virtual bool integrateVoxel(D x, D y, D z, K& ix , K& iy , K& iz) 
+  {
     // std::cout << "[TEST] : TABLE = " << coordinatesToIndexTable_[222] << "\n";
     if (coordinatesToIndex(x, y, z, ix, iy, iz)) 
     {
@@ -691,7 +696,6 @@ public:
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-
   virtual bool startBatchIntegration() 
   {
     _batch_integration = true;
@@ -719,16 +723,17 @@ public:
         D x, y, z;
         std::vector<typename Y_NODE::NodeType *> ynodes;
         xnodes[i]->value->retrieveNodes(ynodes);
-        for (int j = 0; j < ynodes.size(); j++) {
+        for (int j = 0; j < ynodes.size(); j++) 
+        {
           std::vector<typename Z_NODE::NodeType *> znodes;
           ynodes[j]->value->retrieveNodes(znodes);
 
-          for (int k = 0; k < znodes.size(); k++) {
+          for (int k = 0; k < znodes.size(); k++) 
+          {
             ix = xnodes[i]->key;
             iy = ynodes[j]->key;
             iz = znodes[k]->key;
             indexToCoordinates(ix, iy, iz, x, y, z);
-
             voxels_private.push_back(Voxel3D(x, y, z, znodes[k]->value));
           }
         }
@@ -755,17 +760,6 @@ public:
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  /**
-       * Radius search
-       * @param cx
-       * @param cy
-       * @param cz
-       * @param radiusx
-       * @param radiusy
-       * @param radiusz
-       * @param voxels
-       * @param boxed
-       */
   virtual void radiusSearch(K cx, K cy, K cz, K radiusx, K radiusy, K radiusz,
                             std::vector<Voxel3D> &voxels, bool boxed = false) {
     voxels.clear();
@@ -826,19 +820,8 @@ public:
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  /**
-       *
-       * @param cx
-       * @param cy
-       * @param cz
-       * @param radiusx
-       * @param radiusy
-       * @param radiusz
-       * @param voxels
-       * @param boxed
-       */
   virtual void radiusSearch(D cx, D cy, D cz, D radiusx, D radiusy, D radiusz,
-                            std::vector<Voxel3D> &voxels, bool boxed = false) {
+                                               std::vector<Voxel3D> &voxels, bool boxed = false) {
     K ix, iy, iz;
     if (coordinatesToIndex(cx, cy, cz, ix, iy, iz)) {
       K iradiusx, iradiusy, iradiusz;
@@ -848,8 +831,6 @@ public:
       radiusSearch(ix, iy, iz, iradiusx, iradiusy, iradiusz, voxels, boxed);
     }
   }
-
-
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -857,16 +838,14 @@ public:
        *
        * @return
        */
-  virtual long sizeInBytes() { return _bytes_counter; }
+  virtual long sizeInBytes() 
+  { 
+    return _bytes_counter; 
+  }
 
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-  /**
-       *
-       * @param filename
-       */
   virtual void saveToFile(std::string filename) 
   {
     std::vector<Voxel3D> voxels;
@@ -952,20 +931,30 @@ public:
     {
       auto m = mm / 1000.0;
       int16_t index = floor(m/resolution);
-      // if ( index < Max_Index_Value)
-      // {
+      if ( index < Max_Index_Value)
+      {
         table[mm] = index;
-      // }
+      }
     }
     return table;
   }
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-
+  std::vector<float> preComputeIndexToCoordinatesTable_(D resolution)
+  {
+    std::vector<float> table(Max_Index_Value,0.f);
+    for (int index = 0 ;  index < Max_Index_Value; index++)
+    {
+      table[index] = index * resolution + resolution * 0.5;
+    }
+    return table;
+  }  
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 protected:
-
 
   bool _integrateXNode(const typename X_NODE::NodeType *ylist, K &iy, K &iz, V *data) 
   {
@@ -1009,7 +998,7 @@ protected:
 
   const std::vector<u_int16_t> hit_table_;
   const std::vector<u_int16_t> miss_table_;
-  const std::vector<uint16_t> indexToCoordinatesTable_;
+  const std::vector<float> indexToCoordinatesTable_;
   const std::vector<int16_t> coordinatesToIndexTable_;
   
 }; // class SkipListMapV2
