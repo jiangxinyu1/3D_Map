@@ -116,8 +116,8 @@ public:
         _resolution_z(resolution), _voxel_counter(0), _xlist_counter(0),
         _ylist_counter(0), _bytes_counter(0), _batch_integration(false),
         _initialized(false), _self_concurrency_management(false),
-        hit_table_(ComputeLookupTableToApplyOdds(Odds(0.5))),
-        miss_table_(ComputeLookupTableToApplyOdds(Odds(0.5))) ,
+        hit_table_(ComputeLookupTableToApplyOdds(Odds(0.55))),
+        miss_table_(ComputeLookupTableToApplyOdds(Odds(0.46))) ,
         coordinatesToIndexTable_(preComputeCoordinatesToIndexTable_(resolution,20000))
   {
     initialize(_min_index_value, _max_index_value);
@@ -171,19 +171,6 @@ public:
 
    bool isValidIndex(K ix, K iy, K iz) 
   {
-    debugPrint("3.3");
-    bool result = true;
-    result &= ix <= Max_Index_Value && ix >= Min_Index_Value;
-    result &= iy <= Max_Index_Value && iy >= Min_Index_Value;
-    result &= iz <= Max_Index_Value && iz >= Min_Index_Value;
-    return result;
-  };
-
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-   bool myIsValidIndex(int16_t ix, int16_t iy, int16_t iz) 
-   {
     bool result = true;
     result &= ix <= Max_Index_Value && ix >= Min_Index_Value;
     result &= iy <= Max_Index_Value && iy >= Min_Index_Value;
@@ -196,21 +183,18 @@ public:
 
   virtual bool coordinatesToIndex(D x, D y, D z, K &ix, K &iy, K &iz) 
   {
-    debugPrint("3.2");
     ix = K(floor(x / _resolution_x ));
     iy = K(floor(y / _resolution_y ));
     iz = K(floor(z / _resolution_z ));
     return isValidIndex(ix, iy, iz);
   }
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  bool myCoordinatesToIndexFloat(float x, float y, float z, int16_t &ix, int16_t &iy, int16_t &iz) 
+  virtual bool coordinatesToIndexWithTable(int x, int y, int z, K &ix, K &iy, K &iz) 
   {
-    ix = int16_t(floor(x / 0.01));
-    iy = int16_t(floor(y / 0.01));
-    iz = int16_t(floor(z / 0.1));
-    return myIsValidIndex(ix, iy, iz);
+    ix = (K)getVal(x);
+    iy = (K)getVal(y);
+    iz = (K)getVal(z);
+    return isValidIndex(ix, iy, iz);
   }
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -349,17 +333,6 @@ public:
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-  bool myIntegrateVoxelFloat(float x, float y, float z, int16_t& ix , int16_t& iy , int16_t& iz) 
-  {
-    if (myCoordinatesToIndexFloat(x, y, z, ix, iy, iz)) {
-      return true;
-    }
-    return false;
-  }
-
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   
   virtual int manhattan(cv::Point2i a,cv::Point2i b)
   {
@@ -451,8 +424,8 @@ public:
   {
     K ix, iy, iz;
     K c_ix, c_iy, c_iz;
-    if (coordinatesToIndex(x, y, z, ix, iy, iz)) {
-      coordinatesToIndex(c_x, c_y, c_z, c_ix, c_iy, c_iz);
+    if (coordinatesToIndexWithTable(x*1000, y*1000, z*1000, ix, iy, iz)) {
+      coordinatesToIndexWithTable(c_x*1000, c_y*1000, c_z*1000, c_ix, c_iy, c_iz);
       cv::Point2i start(c_ix , c_iy);
       cv::Point2i end(ix , iy);
       std::vector<cv::Point2i> pointset;
@@ -633,23 +606,26 @@ public:
 
       const typename X_NODE::NodeType *ylist = _root_list->find(ix);
       ////////////////////////////////////////////////
-      if (ylist == NULL) {
-        ylist = _root_list->insert(
-            ix, new Y_NODE(_min_index_value, _max_index_value));
+      if (ylist == NULL) 
+      {
+        ylist = _root_list->insert(ix, new Y_NODE(_min_index_value, _max_index_value));
         //_bytes_counter += sizeof(typename X_NODE::NodeType) + sizeof(Y_NODE);
       }
-
       const typename Y_NODE::NodeType *zlist = ylist->value->find(iy);
-      if (zlist == NULL) {
+      if (zlist == NULL) 
+      {
         zlist = ylist->value->insert(iy, new Z_NODE(z_node_min, z_node_max));
       }
 
-      if(iz > z_node_min && iz <z_node_max){
+      if(iz > z_node_min && iz <z_node_max)
+      {
         const typename Z_NODE::NodeType *voxel = zlist->value->find(iz);
-        if (voxel == NULL) {
+        if (voxel == NULL) 
+        {
           voxel = zlist->value->insert(iz, new V(data));
         } else {
-          if(voxel->value->update == false){
+          if(voxel->value->update == false)
+          {
             *(voxel->value) = *(voxel->value) + *data;
             voxel->value->tableValue = hit_table_[voxel->value->tableValue];
           }
@@ -670,24 +646,19 @@ public:
   
   virtual bool integrateVoxel(const std::vector<int16_t>& map_point_index, V *data , bool& newP) 
   {
-    debugPrint("5.3.1");
     if (this->hasConcurrencyAccess())
       this->_root_list->lock(map_point_index[0]);
-    debugPrint("5.3.2");
+
     const typename X_NODE::NodeType *ylist = _root_list->find(map_point_index[0]);
     if (ylist == NULL) 
     {
-      ylist = _root_list->insert(map_point_index[0] , 
-                                                 new Y_NODE(_min_index_value, _max_index_value));
+      ylist = _root_list->insert(map_point_index[0] , new Y_NODE(_min_index_value, _max_index_value));
     }
-
     const typename Y_NODE::NodeType *zlist = ylist->value->find(map_point_index[1]);
     if (zlist == NULL) 
     {
-      zlist = ylist->value->insert(map_point_index[1], 
-                                                     new Z_NODE(z_node_min, z_node_max));
+      zlist = ylist->value->insert(map_point_index[1],new Z_NODE(z_node_min, z_node_max));
     }
-    debugPrint("5.3.3");
     if(map_point_index[2] > z_node_min && map_point_index[2] < z_node_max)
     {
       const typename Z_NODE::NodeType *voxel = zlist->value->find(map_point_index[2]);
@@ -711,12 +682,10 @@ public:
         }
       }//else
     }
-    debugPrint("5.3.4");
-    
     if (this->hasConcurrencyAccess())
+    {
       this->_root_list->unlock(map_point_index[0]);
-
-    debugPrint("5.3.5");  
+    }
     return true;
   }
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
