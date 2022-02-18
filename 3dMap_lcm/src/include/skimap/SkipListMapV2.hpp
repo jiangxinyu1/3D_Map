@@ -198,9 +198,9 @@ public:
 
   virtual bool coordinatesToIndexWithTable(int x, int y, int z, K &ix, K &iy, K &iz) 
   {
-    ix = (K)getVal(x);
-    iy = (K)getVal(y);
-    iz = (K)getVal(z);
+    ix = (K)getValFromCoordinatesToIndexTable(x);
+    iy = (K)getValFromCoordinatesToIndexTable(y);
+    iz = (K)getValFromCoordinatesToIndexTable(z);
     return isValidIndex(ix, iy, iz);
   }
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -219,6 +219,15 @@ public:
     x = ix * _resolution_x + _resolution_x * 0.5;
     y = iy * _resolution_y + _resolution_y * 0.5;
     z = iz * _resolution_z + _resolution_z * 0.5;
+    return true;
+  }
+
+
+  virtual bool indexToCoordinatesWithTable(int ix, int iy, int iz, D &x, D &y, D &z) 
+  {
+    x = (D)getValFromIndexToCoordinatesTable(ix);
+    y = (D)getValFromIndexToCoordinatesTable(iy);
+    z = (D)getValFromIndexToCoordinatesTable(iz); 
     return true;
   }
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -318,7 +327,16 @@ public:
     return false;
   }
 
-  int16_t getVal(int k) 
+  D getValFromIndexToCoordinatesTable(int index) 
+  {
+      if (index < 0)
+      {
+        return (D) -indexToCoordinatesTable_.at(-index);
+      }
+      return indexToCoordinatesTable_.at(index);
+  }
+
+  K getValFromCoordinatesToIndexTable(int k) 
   {
       if (k < 0)
       {
@@ -330,9 +348,9 @@ public:
 
   bool integrateVoxelWithTable(int x, int  y, int z, K& ix , K& iy , K& iz) 
   {
-    ix = (K)getVal(x);
-    iy = (K)getVal(y);
-    iz = (K)getVal(z);
+    ix = (K)getValFromCoordinatesToIndexTable(x);
+    iy = (K)getValFromCoordinatesToIndexTable(y);
+    iz = (K)getValFromCoordinatesToIndexTable(z);
     return true;
   }
 
@@ -733,7 +751,8 @@ public:
             ix = xnodes[i]->key;
             iy = ynodes[j]->key;
             iz = znodes[k]->key;
-            indexToCoordinates(ix, iy, iz, x, y, z);
+            // indexToCoordinates(ix, iy, iz, x, y, z);
+            indexToCoordinatesWithTable((int)ix, (int)iy, (int)iz, x, y, z);
             voxels_private.push_back(Voxel3D(x, y, z, znodes[k]->value));
           }
         }
@@ -966,7 +985,8 @@ protected:
     const typename Z_NODE::NodeType *voxel = zlist->value->find(iz);
     if (voxel == NULL) {
       voxel = zlist->value->insert(iz, new V(data));
-    } else {
+    } else 
+    {
       *(voxel->value) = *(voxel->value) + *data;
     }
     return true;
@@ -998,8 +1018,8 @@ protected:
 
   const std::vector<u_int16_t> hit_table_;
   const std::vector<u_int16_t> miss_table_;
-  const std::vector<float> indexToCoordinatesTable_;
-  const std::vector<int16_t> coordinatesToIndexTable_;
+  const std::vector<D> indexToCoordinatesTable_;
+  const std::vector<K> coordinatesToIndexTable_;
   
 }; // class SkipListMapV2
 } // namespace skimap
