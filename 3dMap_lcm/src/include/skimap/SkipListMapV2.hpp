@@ -461,20 +461,27 @@ public:
         float z = rate * (iz - c_iz) + c_iz;
         K z_index = K(z + 0.5);
 
-        if (isValidIndex(pointset[i].x, pointset[i].y, z_index)) {
+        if (isValidIndex(pointset[i].x, pointset[i].y, z_index)) 
+        {
           const typename X_NODE::NodeType *ylist = _root_list->find(pointset[i].x);
-          if (ylist == NULL) {
+          if (ylist == NULL) 
+          {
             continue;
           }
           const typename Y_NODE::NodeType *zlist = ylist->value->find(pointset[i].y);
-          if (zlist == NULL) {
+          if (zlist == NULL) 
+          {
             continue;
           }
           const typename Z_NODE::NodeType *voxel = zlist->value->find(z_index);
-          if (voxel == NULL) {
+          if (voxel == NULL) 
+          {
             continue;
-          } else {
-            if((voxel->value->w) > 0 && voxel->value->update == false){
+          } 
+          else
+          {
+            if((voxel->value->w) > 0 && voxel->value->update == false)
+            {
               voxel->value->tableValue = miss_table_[voxel->value->tableValue];
             }
             voxel->value->update = true;
@@ -751,7 +758,6 @@ public:
             ix = xnodes[i]->key;
             iy = ynodes[j]->key;
             iz = znodes[k]->key;
-            // indexToCoordinates(ix, iy, iz, x, y, z);
             indexToCoordinatesWithTable((int)ix, (int)iy, (int)iz, x, y, z);
             voxels_private.push_back(Voxel3D(x, y, z, znodes[k]->value));
           }

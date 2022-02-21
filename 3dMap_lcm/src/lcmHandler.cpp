@@ -1,7 +1,7 @@
 /*
  * @Author: your name
  * @Date: 2022-01-24 18:28:58
- * @LastEditTime: 2022-02-17 10:29:18
+ * @LastEditTime: 2022-02-21 10:03:59
  * @LastEditors: Please set LastEditors
  * @Description: 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  * @FilePath: /test_lcm/src/lcmHandler.cpp
@@ -71,8 +71,8 @@ struct SensorMeasurement
       {
         cv::Point3f dir = points[i].point - cv::Point3f(0, 0, 0);
         dir = dir * (1 / cv::norm(dir));
-        for (float dz = camera.min_distance; dz < points[i].point.z;
-             dz += resolution) {
+        for (float dz = camera.min_distance; dz < points[i].point.z;dz += resolution) 
+             {
           cv::Point3f dp = dir * dz;
           ColorPoint colorPoint;
           colorPoint.point = dp;
@@ -131,7 +131,7 @@ void integrateMeasurement1(const std::vector<std::vector<int16_t>>& map_points_i
     if(newP)
     {
       valid_index.push_back(i);
-      voxel_index[(map_points_index[i][0] + 1000) * 1000 + map_points_index[i][1]].push_back(map_points_index[i]);
+      voxel_index[(map_points_index[i][0] + Max_Index_Value) * Max_Index_Value + map_points_index[i][1]].push_back(map_points_index[i]);
     }
   } //for 
 
@@ -182,7 +182,7 @@ void getMeasurePointsFromPointCloud(const lcm_sensor_msgs::PointCloud &msg,
     // 过滤掉在map系下的高度值不合适的点
 
     cp.point.y = msg.points[i].y - 0.046;
-    if ( cp.point.y < -0.1 || cp.point.y > 0)
+    if ( cp.point.y < -0.35 || cp.point.y > 0)
     {
       continue;
     }
@@ -202,16 +202,14 @@ lcm_visualization_msgs::Marker createVisualizationMarker(std::string frame_id,
   marker.action = lcm_visualization_msgs::Marker::ADD;
   marker.type = lcm_visualization_msgs::Marker::SPHERE_LIST;
   marker.header.frame_id = frame_id;
-  //   path.scale.x = 0.02;
-  // path.scale.y = 0.02;
-  marker.color.b = 1.0;
+  marker.color.g = 1.0;
   marker.color.a = 1.0;
 
   if (type == VisualizationType::POINT_CLOUD) {
     marker.type = lcm_visualization_msgs::Marker::POINTS;
-    marker.scale.x = 0.01;
-    marker.scale.y = 0.01;
-    marker.scale.z = 0.01;
+    marker.scale.x = mapParameters.map_resolution;
+    marker.scale.y = mapParameters.map_resolution;
+    marker.scale.z = mapParameters.map_resolution;
   } else if (type == VisualizationType::VOXEL_MAP) {
     marker.type = lcm_visualization_msgs::Marker::CUBE_LIST;
     marker.scale.x = mapParameters.map_resolution;
@@ -231,21 +229,21 @@ void fillVisualizationMarkerWithVoxels( lcm_visualization_msgs::Marker &voxels_m
                                                                      int min_weight_th) 
 {
   // cv::Mat colorSpace(1, voxels.size(), CV_32FC3);
-  cv::Mat colorSpace(1, voxels.size(), 3);
-  if (mapParameters.height_color) 
-  {
-    for (int i = 0; i < voxels.size(); i++) 
-    {
-      colorSpace.at<cv::Vec3f>(i)[0] = 180 - (voxels[i].z / 2) * 180;
-      colorSpace.at<cv::Vec3f>(i)[1] = 1;
-      colorSpace.at<cv::Vec3f>(i)[2] = 1;
-    }
-    // cv::cvtColor(colorSpace, colorSpace, CV_HSV2BGR);
-  }
+  // cv::Mat colorSpace(1, voxels.size(), 3);
+  // if (mapParameters.height_color) 
+  // {
+  //   for (int i = 0; i < voxels.size(); i++) 
+  //   {
+  //     colorSpace.at<cv::Vec3f>(i)[0] = 180 - (voxels[i].z / 2) * 180;
+  //     colorSpace.at<cv::Vec3f>(i)[1] = 1;
+  //     colorSpace.at<cv::Vec3f>(i)[2] = 1;
+  //   }
+  //   // cv::cvtColor(colorSpace, colorSpace, CV_HSV2BGR);
+  // }
 
   for (int i = 0; i < voxels.size(); i++) 
   {
-    if(ValueToProbability(voxels[i].data->tableValue) < 0.8)
+    if(ValueToProbability(voxels[i].data->tableValue) < 0.7)
       continue;
     /**
      * Create 3D Point from 3D Voxel
@@ -257,15 +255,16 @@ void fillVisualizationMarkerWithVoxels( lcm_visualization_msgs::Marker &voxels_m
     /**
      * Assign Cube Color from Voxel Color
      */
-    lcm_std_msgs::ColorRGBA color;
-    color.r = 0;
-    color.g = 255;
-    color.b = 0;
-    color.a = 1;
-
     voxels_marker.points.push_back(point);
-    voxels_marker.colors.push_back(color);
   }
+  lcm_std_msgs::ColorRGBA color;
+  color.r = 0;
+  color.g = 255;
+  color.b = 0;
+  color.a = 1;
+  std::vector<lcm_std_msgs::ColorRGBA> colors_(voxels_marker.points.size(),color);
+  voxels_marker.colors = colors_;
+
   voxels_marker.size = voxels_marker.points.size();
   voxels_marker.pose.position.x = 0;
   voxels_marker.pose.position.y = 0;
@@ -348,7 +347,6 @@ void lcmHandler::run()
   }//while
 }
 
-
 void lcmHandler::exit()
 {
   thread_exit_flag = 1;
@@ -356,7 +354,6 @@ void lcmHandler::exit()
   delete skiMap_builder_thread;
   delete pointcloud_buffer_mutex;
 }
-
 
 /**
  * @brief skiMap建图线程
@@ -379,9 +376,7 @@ void lcmHandler::skiMapBuilderThread()
 
   while(thread_exit_flag == 0 )
   {
-    sleep(1);
-
-    std::cout << "\n[skiMapBuilderThread]: >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>   Begin a new frame  ... \n";
+    // sleep(1);
 
     auto startTime_ = getTime();
 
@@ -389,9 +384,10 @@ void lcmHandler::skiMapBuilderThread()
     // std::cout << "[skiMapBuilderThread] : before pop buffer size = " << pointCloudBuffer.size() << "\n";
     if (pointCloudBuffer.size() == 0 )
     {
-      std::cout << "[skiMapBuilderThread]: no cloud in buffer ... \n";
+      // std::cout << "[skiMapBuilderThread]: no cloud in buffer ... \n";
       continue;
     }
+    std::cout << "\n[skiMapBuilderThread]: >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>   Begin a new frame  ... \n";
     // 从pointCloudBiffer中取出点云
     lcm_sensor_msgs::PointCloud curCloud =  pointCloudBuffer.front();
     pointCloudBuffer.pop();
@@ -405,7 +401,7 @@ void lcmHandler::skiMapBuilderThread()
     auto getSensorMeasurementStartTime = getTime();
 
     SensorMeasurement measurement;
-    const double depthThr = 0.4;
+    const double depthThr = 0.5;
     getMeasurePointsFromPointCloud(curCloud,measurement.points,depthThr);
     measurement.stamp = curCloud.header.stamp;
     // std::cout << "[skiMapBuilderThread]: measurement.points.size = " << measurement.points.size() << "\n";
@@ -458,7 +454,7 @@ void lcmHandler::skiMapBuilderThread()
     auto mapIntegrationEndTime_ = getTime();
     std::cout << "[skiMapBuilderThread]: integrateMeasurement  time =  "<<  mapIntegrationEndTime_ - mapIntegrationStartTime_ <<" \n";
     /*
-    *  6  3D Map Publisher
+    *  6  3D Map Publisher 
     */
     auto mapBuilderStartTime_ = getTime();
     std::vector<Voxel3D> voxels1; 
@@ -482,7 +478,6 @@ void lcmHandler::skiMapBuilderThread()
     }
     auto mapPublisherEndTime_ = getTime();
     std::cout << "[skiMapBuilderThread]:  publisher map time =  "<<  mapPublisherEndTime_ - mapPublisherStartTime_ <<" \n";
-    
     
     auto endTime_ = getTime();
     std::cout << "[skiMapBuilderThread]: >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>   Frame handle time =  "<<  endTime_ - startTime_ <<" \n";
