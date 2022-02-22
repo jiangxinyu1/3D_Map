@@ -43,8 +43,7 @@ public:
     setZeroLevel(zero_level);
   }
   
-  /**
-       */
+  // SkiMap 的构造函数
   SkiMap(D resolution, D zero_level = D(0.0)) : ParentMap(resolution)
   {
     setZeroLevel(D(zero_level));

@@ -30,8 +30,8 @@ namespace skimap {
   #define Min_Index_Value -2000 //-400
   #define Max_Index_Value 2000 //400
 
-  #define z_node_min -2 //-5
-  #define z_node_max 200 //20
+  #define z_node_min -5 //-5
+  #define z_node_max 20 //20
 
   // #define Min_Index_Value -400
   // #define Max_Index_Value 400
@@ -139,8 +139,8 @@ public:
 
   SkipListMapV2()
       : _min_index_value(Min_Index_Value), //std::numeric_limits<K>::min() , std::numeric_limits<K>::max(
-        _max_index_value(Max_Index_Value), _resolution_x(0.01),
-        _resolution_y(0.01), _resolution_z(0.1), _voxel_counter(0),
+        _max_index_value(Max_Index_Value), _resolution_x(resolution),
+        _resolution_y(resolution), _resolution_z(resolution), _voxel_counter(0),
         _xlist_counter(0), _ylist_counter(0), _bytes_counter(0),
         _batch_integration(false), _initialized(false),
         _self_concurrency_management(false),
@@ -650,8 +650,7 @@ public:
       if(iz > z_node_min && iz <z_node_max)
       {
         const typename Z_NODE::NodeType *voxel = zlist->value->find(iz);
-        if (voxel == NULL) 
-        {
+        if (voxel == NULL) {
           voxel = zlist->value->insert(iz, new V(data));
         } else {
           if(voxel->value->update == false)
@@ -689,6 +688,7 @@ public:
     {
       zlist = ylist->value->insert(map_point_index[1],new Z_NODE(z_node_min, z_node_max));
     }
+    // 如果 z_index 在指定范围内，
     if(map_point_index[2] > z_node_min && map_point_index[2] < z_node_max)
     {
       const typename Z_NODE::NodeType *voxel = zlist->value->find(map_point_index[2]);
