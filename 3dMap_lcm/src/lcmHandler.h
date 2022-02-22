@@ -1,7 +1,7 @@
 /*
  * @Author: your name
  * @Date: 2022-01-24 18:29:14
- * @LastEditTime: 2022-02-14 10:44:04
+ * @LastEditTime: 2022-02-21 11:13:45
  * @LastEditors: Please set LastEditors
  * @Description: 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  * @FilePath: /test_lcm/src/lcmHandler.h
@@ -34,6 +34,9 @@
 #include "lcm_ros/time.h"
 
 #include "opencv2/highgui.hpp"
+
+#include <Eigen/Core>
+#include <Eigen/Geometry>
 
 #include "tool.h"
 

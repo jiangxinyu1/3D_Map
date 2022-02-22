@@ -111,7 +111,7 @@ class SkipListMap
     /**
          */
     SkipListMap() : _min_index_value(std::numeric_limits<K>::min()), _max_index_value(std::numeric_limits<K>::max()),
-                    _resolution_x(0.01), _resolution_y(0.01), _resolution_z(0.1),
+                    _resolution_x(resolution), _resolution_y(resolution), _resolution_z(resolution),
                     _voxel_counter(0), _xlist_counter(0), _ylist_counter(0), _bytes_counter(0), _batch_integration(false), _initialized(false), _self_concurrency_management(false)
     {
     }

@@ -1,7 +1,7 @@
 /*
  * @Author: your name
  * @Date: 2022-01-24 18:28:58
- * @LastEditTime: 2022-02-21 10:03:59
+ * @LastEditTime: 2022-02-22 15:24:52
  * @LastEditors: Please set LastEditors
  * @Description: 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  * @FilePath: /test_lcm/src/lcmHandler.cpp
@@ -21,7 +21,8 @@ typedef skimap::SkiMap<VoxelDataColor, int16_t, float>::Tiles2D Tiles2D;
 
 SKIMAP *map;
 
-struct MapParameters {
+struct MapParameters 
+{
   float ground_level;
   float agent_height;
   float map_resolution;
@@ -51,7 +52,6 @@ enum VisualizationType {
   VOXEL_GRID,
 };
 
-
 struct SensorMeasurement 
 {
   // ros::Time stamp;
@@ -59,7 +59,8 @@ struct SensorMeasurement
   std::vector<ColorPoint> points;
   std::vector<ColorPoint> chisel_points;
 
-  void addChiselPoints(CameraParameters &camera, float resolution) {
+  void addChiselPoints(CameraParameters &camera, float resolution) 
+  {
     chisel_points.clear();
 
 #pragma omp parallel
@@ -155,39 +156,60 @@ void integrateMeasurement1(const std::vector<std::vector<int16_t>>& map_points_i
   // integrationParameters.integration_counter++;
 }
 
+
 /**
  * @brief Get the Measure Points From Point Cloud object
  * 
  * @param msg 
- * @param output_points 
+ * @param base_to_camera_rotation 
+ * @param base_to_camera_transvec 
+ * @param camera_points 
+ * @param map_points_index 
+ * @param depthThr 
  */
-void getMeasurePointsFromPointCloud(const lcm_sensor_msgs::PointCloud &msg, 
-                                                                     std::vector<ColorPoint> &output_points,
-                                                                     const double &depthThr)
+void getMeasurePointsFromPointCloud(const lcm_sensor_msgs::PointCloud &msg,
+                                                                     const Eigen::Matrix3f &base_to_camera_rotation,
+                                                                     const Eigen::Vector3f &base_to_camera_transvec,
+                                                                     std::vector<ColorPoint> &camera_points,
+                                                                     std::vector<std::vector<int16_t>> &map_points_index,
+                                                                     const float & depthThrCamera,
+                                                                     const float & yThrMap)
 {
+  // 遍历点云数据
+  const float xThrCamra = depthThrCamera*1.5;
+  // const float yThrMap = -0.35;
   for (int i = 0 ;  i < msg.points.size(); i++)
   {
-    const double xThr = depthThr*1.5;
-    ColorPoint cp;
-    cp.point.x = msg.points[i].x;
-    cp.point.y = msg.points[i].y;
-    cp.point.z = msg.points[i].z;
-    //  过滤掉相机系下的深度值的点
-    if ((cp.point.x == 0 && cp.point.y == 0 && cp.point.z == 0) 
-         || cp.point.z > depthThr 
-         || std::fabs(cp.point.x) > xThr )
+    // Todo1 : 过滤掉在相机系下没一定深度值内的点及FOV外的点
+    if ((msg.points[i].x == 0 && msg.points[i].y == 0 && msg.points[i].z == 0) || msg.points[i].z > depthThrCamera)
     {
       continue;
     }
-    // 过滤掉在map系下的高度值不合适的点
+    // Todo 2 ：将单个点云转换到map系下
+    Eigen::Vector3f camera_point(float(msg.points[i].x),float(msg.points[i].y),float(msg.points[i].z));
+    Eigen::Vector3f map_point = base_to_camera_rotation*camera_point + base_to_camera_transvec;
+    // Todo 3 : 过滤掉map下过高的点及地面以下的点
+    if (map_point[1] < yThrMap || map_point[1] > 0 )
+    {
+      continue;
+    }
 
-    cp.point.y = msg.points[i].y - 0.046;
-    if ( cp.point.y < -0.35 || cp.point.y > 0)
+    // Todo 4 ：turn to  map index
+    int16_t ix, iy ,iz;
+    if(map->integrateVoxelWithTable((map_point[0]*1000), 
+                                                              (map_point[1]*1000),
+                                                              (map_point[2]*1000),
+                                                               ix, iy, iz))
     {
-      continue;
+      std::vector<int16_t> data{ix , iy , iz};
+      map_points_index[i] = data;
+      ColorPoint cp;
+      cp.point.x = msg.points[i].x;
+      cp.point.y = msg.points[i].y;
+      cp.point.z = msg.points[i].z;
+      camera_points.push_back(cp);
     }
-    output_points.push_back(cp);
-  }
+  }// for
 }
 
 lcm_visualization_msgs::Marker createVisualizationMarker(std::string frame_id,
@@ -378,10 +400,13 @@ void lcmHandler::skiMapBuilderThread()
   {
     // sleep(1);
 
+    /*
+     * @brief （1）从pointCloudBuffer中获取点云 
+     * 
+     */
     auto startTime_ = getTime();
 
     std::unique_lock<std::mutex> lk(*pointcloud_buffer_mutex);
-    // std::cout << "[skiMapBuilderThread] : before pop buffer size = " << pointCloudBuffer.size() << "\n";
     if (pointCloudBuffer.size() == 0 )
     {
       // std::cout << "[skiMapBuilderThread]: no cloud in buffer ... \n";
@@ -391,62 +416,49 @@ void lcmHandler::skiMapBuilderThread()
     // 从pointCloudBiffer中取出点云
     lcm_sensor_msgs::PointCloud curCloud =  pointCloudBuffer.front();
     pointCloudBuffer.pop();
-    // std::cout << "[skiMapBuilderThread] : after pop buffer size = " << pointCloudBuffer.size() << "\n";
     lk.unlock();
-
     auto getPointCloudEndTime = getTime();
     std::cout << "[skiMapBuilderThread]: get PointCloud time = " << getPointCloudEndTime - startTime_ << "\n";
-
-
-    auto getSensorMeasurementStartTime = getTime();
-
-    SensorMeasurement measurement;
-    const double depthThr = 0.5;
-    getMeasurePointsFromPointCloud(curCloud,measurement.points,depthThr);
-    measurement.stamp = curCloud.header.stamp;
-    // std::cout << "[skiMapBuilderThread]: measurement.points.size = " << measurement.points.size() << "\n";
-
-    auto getSensorMeasurementEndTime = getTime();
-    std::cout << "[skiMapBuilderThread]: get SensorMeasurement time = " << getSensorMeasurementEndTime - getSensorMeasurementStartTime << "\n";
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     /*
-    *  4  通过相机与base系之间的变换，转成世界系下的点，生成 map_points，map_points_index，voxels 
-    */
+     * @brief （2）获取用于建图的点云数据measurement，滤点，用外参将点云转到map系下
+     * 
+     */
     auto makeMapPointsStartTime = getTime();
 
-    std::vector<VoxelDataColor> voxels (measurement.points.size(),VoxelDataColor (0,255,0,1.0));
+    SensorMeasurement measurement;
     std::vector<std::vector<int16_t>> map_points_index;
-    map_points_index.resize(measurement.points.size());
-    tf::Vector3 base_to_camera (0,0,0);
-    for (int i = 0; i < measurement.points.size(); i++) 
-    {
-      tf::Vector3 base_to_point(measurement.points[i].point.x, measurement.points[i].point.y, measurement.points[i].point.z);
-      // base_to_point = base_to_camera * base_to_point;
-      // std::cout << base_to_point.y() << ",";
-      
-      int16_t ix, iy, iz;
-      if(map->integrateVoxelWithTable((base_to_point.x()*1000), 
-                                                                (base_to_point.y()*1000), 
-                                                                (base_to_point.z()*1000), 
-                                                                ix, iy, iz))
-      {                               
-        std::vector<int16_t> data{ix , iy , iz};
-        map_points_index[i] = data;
-      }
-    } // for 
+    Eigen::Matrix3f base_to_camera_rotation_matrix = Eigen::Matrix3f::Identity();
+    Eigen::Vector3f base_to_camera_transvec(0.0f,0.0f,0.0f);
+    const double depthThrCamera = 0.5;
+    const float yThrMap = -0.35;
+    getMeasurePointsFromPointCloud(curCloud,
+                                                                base_to_camera_rotation_matrix,
+                                                                base_to_camera_transvec,
+                                                                measurement.points,
+                                                                map_points_index,
+                                                                depthThrCamera,
+                                                                yThrMap);
+
+    measurement.stamp = curCloud.header.stamp;
+    std::vector<VoxelDataColor> voxels (measurement.points.size(),VoxelDataColor (0,255,0,1.0));
+
+    // std::cout << "[skiMapBuilderThread]: measurement.points.size = " << measurement.points.size() << "\n";
+
 
     // 将camera在map系下的原点位置存为整数
     int16_t ix, iy, iz;
-    map->integrateVoxelWithTable(base_to_camera.x()*1000, 
-                                                           base_to_camera.y()*1000, 
-                                                           base_to_camera.z()*1000, 
+    map->integrateVoxelWithTable(base_to_camera_transvec[0]*1000, 
+                                                           base_to_camera_transvec[1]*1000, 
+                                                           base_to_camera_transvec[2]*1000, 
                                                            ix, iy, iz);
     std::vector<int16_t> map_camera_index{ix , iy , iz};
 
     auto makeMapPointsEndTime = getTime();
     std::cout << "[skiMapBuilderThread]: make map points time =  "<<  makeMapPointsEndTime - makeMapPointsStartTime <<" \n";
 
-    /*
+    /*    
     * 5  Map Integration
     */
     auto mapIntegrationStartTime_ = getTime();
@@ -476,6 +488,8 @@ void lcmHandler::skiMapBuilderThread()
 
       node_->publish("map_3d",&map_marker);                                            
     }
+
+    
     auto mapPublisherEndTime_ = getTime();
     std::cout << "[skiMapBuilderThread]:  publisher map time =  "<<  mapPublisherEndTime_ - mapPublisherStartTime_ <<" \n";
     

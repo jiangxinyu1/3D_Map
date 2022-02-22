@@ -25,6 +25,7 @@ include_directories(
     ${Thirdparty_DIR}/include/opencv2
     ${LCM_INCLUDE_DIR}
     ${OpenCV_INCLUDE_DIRS}
+    "/usr/include/eigen3"
 )
 
 
