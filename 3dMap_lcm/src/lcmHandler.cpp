@@ -1,7 +1,7 @@
 /*
  * @Author: your name
  * @Date: 2022-01-24 18:28:58
- * @LastEditTime: 2022-02-23 11:15:25
+ * @LastEditTime: 2022-02-23 11:37:14
  * @LastEditors: Please set LastEditors
  * @Description: 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  * @FilePath: /test_lcm/src/lcmHandler.cpp
@@ -101,6 +101,8 @@ struct IntegrationParameters
   IntegrationParameters() { integration_counter = 0; }
 } integrationParameters;
 
+
+
 /**
  * @brief 
  * 
@@ -132,7 +134,8 @@ void integrateMeasurement1(const std::vector<std::vector<int16_t>>& map_points_i
     if(newP)
     {
       valid_index.push_back(i);
-      voxel_index[(map_points_index[i][0] + Max_Index_Value) * Max_Index_Value + map_points_index[i][1]].push_back(map_points_index[i]);
+      // voxel_index[(map_points_index[i][0] + Max_Index_Value) * Max_Index_Value + map_points_index[i][1]].push_back(map_points_index[i]);
+      voxel_index[(map_points_index[i][0] ) * Max_Index_Value + map_points_index[i][1]].push_back(map_points_index[i]);
     }
   } //for 
 
@@ -458,8 +461,6 @@ void lcmHandler::skiMapBuilderThread()
                                                                 yThrMap);
 
     measurement.stamp = curCloud.header.stamp;
-    std::vector<VoxelDataColor> voxels (measurement.points.size(),VoxelDataColor (0,255,0,1.0));
-
     // std::cout << "[skiMapBuilderThread]: measurement.points.size = " << measurement.points.size() << "\n";
 
     // 将camera在map系下的原点位置存为整数
@@ -482,18 +483,27 @@ void lcmHandler::skiMapBuilderThread()
      * 
      */
     auto mapIntegrationStartTime_ = getTime();
+    std::vector<VoxelDataColor> voxels (measurement.points.size(),VoxelDataColor (0,255,0,1.0));
     integrateMeasurement1(map_points_index, voxels, map, map_camera_index);
     auto mapIntegrationEndTime_ = getTime();
     std::cout << "[skiMapBuilderThread]: integrateMeasurement  time =  "<<  mapIntegrationEndTime_ - mapIntegrationStartTime_ <<" \n";
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
     /*
-    *  6  3D Map Publisher 
-    */
+     * @brief （4）make voxels
+     * 
+     */
     auto mapBuilderStartTime_ = getTime();
     std::vector<Voxel3D> voxels1; 
     map->fetchVoxels(voxels1); // voxels存储所有map中的体素
     auto mapBuilderEndTime_ = getTime();
     std::cout << "[skiMapBuilderThread]: fetchVoxels  time =  "<<  mapBuilderEndTime_ - mapBuilderStartTime_ <<" \n";
 
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     auto mapPublisherStartTime_ = getTime();
     if (voxels1.size() > 0 )
     {
@@ -515,6 +525,7 @@ void lcmHandler::skiMapBuilderThread()
     
     auto endTime_ = getTime();
     std::cout << "[skiMapBuilderThread]: >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>   Frame handle time =  "<<  endTime_ - startTime_ <<" \n";
+
   }
   std::cout  << "[skiMapBuilderThread] skiMapBuilderThread  Exit";
 }
