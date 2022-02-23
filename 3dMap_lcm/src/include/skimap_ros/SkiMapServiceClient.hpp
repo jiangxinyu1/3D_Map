@@ -126,9 +126,9 @@ protected:
         color.g = p.g;
         color.b = p.b;
         color.a = 1;
-        srv.request.points.push_back(mp);
-        srv.request.colors.push_back(color);
-        srv.request.weights.push_back(p.w);
+        srv.request.points.emplace_back(mp);
+        srv.request.colors.emplace_back(color);
+        srv.request.weights.emplace_back(p.w);
       }
     }
 

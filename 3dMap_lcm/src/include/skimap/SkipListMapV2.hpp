@@ -82,9 +82,9 @@ public:
       IntegrationEntry entry(x, y, z, data, max_depth);
       if (map.find(x) == map.end()) {
         map[x] = std::vector<IntegrationEntry>();
-        map_keys.push_back(x);
+        map_keys.emplace_back(x);
       }
-      map[x].push_back(entry);
+      map[x].emplace_back(entry);
     }
 
     void clear() {
@@ -477,7 +477,7 @@ public:
               voxel->value->tableValue = miss_table_[voxel->value->tableValue];
             }
             voxel->value->update = true;
-            voxelsUpdate.push_back(voxel);
+            voxelsUpdate.emplace_back(voxel);
           }
         }
       }
@@ -516,7 +516,7 @@ public:
           voxel->value->tableValue = miss_table_[voxel->value->tableValue];
         }
         voxel->value->update = true;
-        voxelsUpdate.push_back(voxel);
+        voxelsUpdate.emplace_back(voxel);
       }
     }
   }
@@ -541,7 +541,7 @@ public:
       std::vector<int16_t> vec_z;
       for(auto cell : it->second)
       {
-        vec_z.push_back(cell[2]);
+        vec_z.emplace_back(cell[2]);
       }
       std::sort(vec_z.begin() , vec_z.end());
       //  计算
@@ -557,7 +557,7 @@ public:
         std::pair<int , int> pp(vec_z[0] , vec_z[0]);
         if(vec_z.size() == 1) 
         {
-          cluster.push_back(pp);
+          cluster.emplace_back(pp);
         }
 
         for(int index = 1 ; index < vec_z.size() ; index ++)
@@ -565,13 +565,13 @@ public:
           if(vec_z[index] - vec_z[index - 1] > 3)
           {
             pp.second = vec_z[index - 1];
-            cluster.push_back(pp);
+            cluster.emplace_back(pp);
             pp.first = vec_z[index];
           }
           else if(index = vec_z.size() - 1)
           {
             pp.second = vec_z[index];
-            cluster.push_back(pp);
+            cluster.emplace_back(pp);
           }
         }//for
         // 结束聚类
@@ -611,7 +611,7 @@ public:
                 voxel->value->tableValue = miss_table_[voxel->value->tableValue];
               }
               voxel->value->update = true;
-              voxelsUpdate.push_back(voxel);
+              voxelsUpdate.emplace_back(voxel);
             }
 
           }
@@ -639,7 +639,7 @@ public:
       std::vector<int16_t> vec_z;
       for(auto cell : voxel_index)
       {
-        vec_z.push_back(cell.second[2]);
+        vec_z.emplace_back(cell.second[2]);
       }
       std::sort(vec_z.begin() , vec_z.end());
       //  计算
@@ -655,20 +655,20 @@ public:
         std::pair<int , int> pp(vec_z[0] , vec_z[0]);
         if(vec_z.size() == 1) 
         {
-          cluster.push_back(pp);
+          cluster.emplace_back(pp);
         }
         for(int zz = 1 ; zz < vec_z.size() ; zz ++)
         {
           if(vec_z[zz] - vec_z[zz - 1] > 2)
           {
             pp.second = vec_z[zz - 1];
-            cluster.push_back(pp);
+            cluster.emplace_back(pp);
             pp.first = vec_z[zz];
           }
           else if(zz = vec_z.size() - 1)
           {
             pp.second = vec_z[zz];
-            cluster.push_back(pp);
+            cluster.emplace_back(pp);
           }
         }//for
         // 结束聚类
@@ -706,7 +706,7 @@ public:
                 voxel->value->tableValue = miss_table_[voxel->value->tableValue];
               }
               voxel->value->update = true;
-              voxelsUpdate.push_back(voxel);
+              voxelsUpdate.emplace_back(voxel);
             }
           }
         }
@@ -731,7 +731,7 @@ public:
       std::vector<int16_t> vec_z;
       for(auto cell : voxel_index)
       {
-        vec_z.push_back(cell.map_index[2]);
+        vec_z.emplace_back(cell.map_index[2]);
       }
       std::sort(vec_z.begin() , vec_z.end());
       //  计算
@@ -747,20 +747,20 @@ public:
         std::pair<int , int> pp(vec_z[0] , vec_z[0]);
         if(vec_z.size() == 1) 
         {
-          cluster.push_back(pp);
+          cluster.emplace_back(pp);
         }
         for(int zz = 1 ; zz < vec_z.size() ; zz ++)
         {
           if(vec_z[zz] - vec_z[zz - 1] > 2)
           {
             pp.second = vec_z[zz - 1];
-            cluster.push_back(pp);
+            cluster.emplace_back(pp);
             pp.first = vec_z[zz];
           }
           else if(zz = vec_z.size() - 1)
           {
             pp.second = vec_z[zz];
-            cluster.push_back(pp);
+            cluster.emplace_back(pp);
           }
         }//for
         // 结束聚类
@@ -798,7 +798,7 @@ public:
                 voxel->value->tableValue = miss_table_[voxel->value->tableValue];
               }
               voxel->value->update = true;
-              voxelsUpdate.push_back(voxel);
+              voxelsUpdate.emplace_back(voxel);
             }
           }
         }
@@ -840,7 +840,7 @@ public:
           }
         }
         voxel->value->update = true;
-        voxelsUpdate.push_back(voxel);
+        voxelsUpdate.emplace_back(voxel);
       }
       
       if (this->hasConcurrencyAccess())
@@ -887,7 +887,7 @@ public:
         voxel = zlist->value->insert(map_point_index[2], new V(data));
         voxel->value->tableValue = hit_table_[voxel->value->tableValue];
         voxel->value->update = true;
-        voxelsUpdate.push_back(voxel);
+        voxelsUpdate.emplace_back(voxel);
         newP = true;
       }// if
       else
@@ -897,7 +897,7 @@ public:
           *(voxel->value) = *(voxel->value) + *data;
           voxel->value->tableValue = hit_table_[voxel->value->tableValue];
           voxel->value->update = true;
-          voxelsUpdate.push_back(voxel);
+          voxelsUpdate.emplace_back(voxel);
           newP = true;
         }
       }//else
@@ -948,8 +948,12 @@ public:
             ix = xnodes[i]->key;
             iy = ynodes[j]->key;
             iz = znodes[k]->key;
+            if (znodes[k]->value->tableValue < 0.9)
+            {
+              continue;
+            }
             indexToCoordinatesWithTable((int)ix, (int)iy, (int)iz, x, y, z);
-            voxels_private.push_back(Voxel3D(x, y, z, znodes[k]->value));
+            voxels_private.emplace_back(Voxel3D(x, y, z, znodes[k]->value));
           }
         }
       }
@@ -1022,7 +1026,7 @@ public:
               if (distance > radius)
                 continue;
             }
-            voxels_private.push_back(Voxel3D(x, y, z, znodes[k]->value));
+            voxels_private.emplace_back(Voxel3D(x, y, z, znodes[k]->value));
           }
         }
       }

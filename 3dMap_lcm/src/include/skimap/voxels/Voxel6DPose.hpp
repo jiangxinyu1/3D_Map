@@ -57,8 +57,8 @@ struct Voxel6DPose
 
     Voxel6DPose(std::string name, cv::Vec3f trans, cv::Vec4f rot)
     {
-        this->rots.push_back(rot);
-        this->trans.push_back(trans);
+        this->rots.emplace_back(rot);
+        this->trans.emplace_back(trans);
         this->name = name;
     }
 

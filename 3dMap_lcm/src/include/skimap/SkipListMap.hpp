@@ -67,9 +67,9 @@ class SkipListMap
             if (map.find(x) == map.end())
             {
                 map[x] = std::vector<IntegrationEntry>();
-                map_keys.push_back(x);
+                map_keys.emplace_back(x);
             }
-            map[x].push_back(entry);
+            map[x].emplace_back(entry);
         }
 
         void clear()
@@ -433,7 +433,7 @@ class SkipListMap
                         iz = znodes[k]->key;
                         indexToCoordinates(ix, iy, iz, x, y, z);
 
-                        voxels_private.push_back(Voxel3D(x, y, z, znodes[k]->value));
+                        voxels_private.emplace_back(Voxel3D(x, y, z, znodes[k]->value));
                     }
                 }
             }
@@ -504,7 +504,7 @@ class SkipListMap
                             if (distance > radius)
                                 continue;
                         }
-                        voxels_private.push_back(Voxel3D(x, y, z, znodes[k]->value));
+                        voxels_private.emplace_back(Voxel3D(x, y, z, znodes[k]->value));
                     }
                 }
             }

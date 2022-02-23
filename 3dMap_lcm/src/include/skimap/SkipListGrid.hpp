@@ -309,7 +309,7 @@ public:
           ix = xnodes[i]->key;
           iy = ynodes[j]->key;
           indexToCoordinates(ix, iy, x, y);
-          voxels_private.push_back(Voxel2D(x, y, ynodes[j]->value));
+          voxels_private.emplace_back(Voxel2D(x, y, ynodes[j]->value));
         }
       }
 
@@ -371,7 +371,7 @@ public:
             if (distance > radius)
               continue;
           }
-          voxels_private.push_back(Voxel2D(x, y, ynodes[j]->value));
+          voxels_private.emplace_back(Voxel2D(x, y, ynodes[j]->value));
         }
       }
 

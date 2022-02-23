@@ -369,7 +369,7 @@ class KDSkipList
                 idx[idx.size() - 1] = reinterpret_cast<typename KNODE::NodeType *>(temp_nodes[i])->key;
                 Coordinates cds(idx.size());
                 this->indexToCoordinates(idx, cds);
-                voxels.push_back(
+                voxels.emplace_back(
                     VoxelKD(
                         cds, reinterpret_cast<V *>(reinterpret_cast<typename KNODE::NodeType *>(temp_nodes[i])->value)));
             }
@@ -418,7 +418,7 @@ class KDSkipList
                 K d = indicesSquaredDistance(voxel_center, center);
                 if (d <= squaredRadius)
                 {
-                    filtered_voxels.push_back(temp_voxels[i]);
+                    filtered_voxels.emplace_back(temp_voxels[i]);
                 }
             }
 

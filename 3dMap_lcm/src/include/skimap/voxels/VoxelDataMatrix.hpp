@@ -61,7 +61,7 @@ struct VoxelDataMatrix
         d.matrix = v1.matrix;
         for (int i = 0; i < v2.matrix.size(); i++)
         {
-            d.matrix.push_back(v2.matrix[i]);
+            d.matrix.emplace_back(v2.matrix[i]);
         }
         return d;
     }
@@ -111,7 +111,7 @@ struct VoxelDataMatrix
         {
             if (!to_delete_mask[i])
             {
-                d2.matrix.push_back(d.matrix[i]);
+                d2.matrix.emplace_back(d.matrix[i]);
             }
         }
 

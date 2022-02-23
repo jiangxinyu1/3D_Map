@@ -293,7 +293,7 @@ class SkipListDense
         {
             if (this->_dense_nodes[i] != NULL)
             {
-                nodes.push_back(this->_dense_nodes[i]);
+                nodes.emplace_back(this->_dense_nodes[i]);
             }
         }
     }
@@ -327,7 +327,7 @@ class SkipListDense
             {
                 if (this->_dense_nodes[i] != NULL)
                 {
-                    nodes.push_back(this->_dense_nodes[i]);
+                    nodes.emplace_back(this->_dense_nodes[i]);
                 }
             }
         }

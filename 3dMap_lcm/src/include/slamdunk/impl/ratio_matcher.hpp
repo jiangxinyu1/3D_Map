@@ -93,7 +93,7 @@ void slamdunk::RatioMatcher<FLANNDistanceTp>::match(cv::Mat query, std::vector<F
           mh.feat_gidx = (int)indexPtr[0];
           mh.query_idx = k;
           mh.ratio = distsPtr[0] / (float)distsPtr[ne];
-          match_list.push_back(mh);
+          match_list.emplace_back(mh);
         }
         break;
       }
@@ -114,7 +114,7 @@ void slamdunk::RatioMatcher<FLANNDistanceTp>::match(cv::Mat query, std::vector<F
       fm.m_feat_idx = it->feat_gidx - m_model_zeroes[fm.m_model_idx];
       fm.m_query_idx = it->query_idx;
       fm.m_match_score = 1.f - std::sqrt(it->ratio);
-      matches.push_back(fm);
+      matches.emplace_back(fm);
     }
 
   //delete[] indices.ptr();

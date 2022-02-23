@@ -1,7 +1,7 @@
 /*
  * @Author: your name
  * @Date: 2022-01-24 18:28:58
- * @LastEditTime: 2022-02-23 16:56:38
+ * @LastEditTime: 2022-02-23 19:09:37
  * @LastEditors: Please set LastEditors
  * @Description: 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  * @FilePath: /test_lcm/src/lcmHandler.cpp
@@ -79,7 +79,7 @@ struct SensorMeasurement
           ColorPoint colorPoint;
           colorPoint.point = dp;
           colorPoint.w = -mapParameters.chisel_step;
-          new_points.push_back(colorPoint);
+          new_points.emplace_back(colorPoint);
         }
       }
 
@@ -138,19 +138,19 @@ void integrateMeasurement1(const std::vector<std::vector<int16_t>>& map_points_i
     {
 
 #if 1  // for update updataMissVoxel 1    
-      voxel_index[(map_points_index[i][0] ) * Max_Index_Value + map_points_index[i][1]].push_back(map_points_index[i]);
+      voxel_index[(map_points_index[i][0] ) * Max_Index_Value + map_points_index[i][1]].emplace_back(map_points_index[i]);
 #endif 
 
 #if 0 // for update updataMissVoxel 2
       std::pair<int ,std::vector<int16_t>> pp((map_points_index[i][0] ) * Max_Index_Value + map_points_index[i][1] ,map_points_index[i]);
-      voxel_index.push_back(pp);
+      voxel_index.emplace_back(pp);
 #endif
 
 #if 0 // for update updataMissVoxel 3
       voxel_index_node tmp;
       tmp.index = (map_points_index[i][0] ) * Max_Index_Value + map_points_index[i][1];
       tmp.map_index = map_points_index[i];
-      voxel_index.push_back(tmp);
+      voxel_index.emplace_back(tmp);
 #endif
 
     }
@@ -240,12 +240,12 @@ void getMeasurePointsFromPointCloud(const lcm_sensor_msgs::PointCloud &msg,
     {
       // debugPrint("D");
       std::vector<int16_t> data{ix , iy , iz};
-      map_points_index.push_back(data);
+      map_points_index.emplace_back(data);
       ColorPoint cp;
       cp.point.x = msg.points[i].x;
       cp.point.y = msg.points[i].y;
       cp.point.z = msg.points[i].z;
-      camera_points.push_back(cp);
+      camera_points.emplace_back(cp);
     }
 #endif    
   }// for
@@ -316,7 +316,7 @@ void fillVisualizationMarkerWithVoxels( lcm_visualization_msgs::Marker &voxels_m
     /**
      * Assign Cube Color from Voxel Color
      */
-    voxels_marker.points.push_back(point);
+    voxels_marker.points.emplace_back(point);
   }
   lcm_std_msgs::ColorRGBA color;
   color.r = 0;
@@ -437,7 +437,7 @@ void lcmHandler::skiMapBuilderThread()
 
   while(thread_exit_flag == 0 )
   {
-    // sleep(1);
+    
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     /*
@@ -449,6 +449,7 @@ void lcmHandler::skiMapBuilderThread()
     std::unique_lock<std::mutex> lk(*pointcloud_buffer_mutex);
     if (pointCloudBuffer.size() == 0 )
     {
+      usleep(20);
       continue;
     }
     std::cout << "\n[skiMapBuilderThread]: >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>   Begin a new frame  ... \n";

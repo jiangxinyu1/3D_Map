@@ -164,7 +164,7 @@ public:
 
   virtual inline ElementRef insert(Element &e)
   {
-    m_elements.push_back(e);
+    m_elements.emplace_back(e);
     ElementRef er;
     er.nodePtr = this;
     er.elemIt = --(m_elements.end());
@@ -180,7 +180,7 @@ public:
       if (it->m_coords.x() >= p0.x() && it->m_coords.x() < p1.x() &&
           it->m_coords.y() >= p0.y() && it->m_coords.y() < p1.y())
       {
-        data.push_back(*it);
+        data.emplace_back(*it);
         data.back().m_coords = data.back().m_coords * length + offset;
       }
   }

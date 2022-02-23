@@ -137,20 +137,20 @@ public:
           this->indexToCoordinates(ix, iy, iz, x, y, z);
 
           if (ynodes[j]->value->empty()) {
-            voxels_private.push_back(Tiles2D(x, y, z, NULL));
+            voxels_private.emplace_back(Tiles2D(x, y, z, NULL));
           } else {
             typename Z_NODE::NodeType *first_voxel =
                 ynodes[j]->value->findNearest(_zero_level_key);
             if (first_voxel == NULL) {
-              voxels_private.push_back(Tiles2D(x, y, z, NULL));
+              voxels_private.emplace_back(Tiles2D(x, y, z, NULL));
             } else {
               D vh;
               this->singleIndexToCoordinate(first_voxel->key, vh,
                                             this->_resolution_z);
               if (vh > min_voxel_height) {
-                voxels_private.push_back(Tiles2D(x, y, z, NULL));
+                voxels_private.emplace_back(Tiles2D(x, y, z, NULL));
               } else {
-                voxels_private.push_back(Tiles2D(x, y, z, first_voxel->value));
+                voxels_private.emplace_back(Tiles2D(x, y, z, first_voxel->value));
               }
             }
           }

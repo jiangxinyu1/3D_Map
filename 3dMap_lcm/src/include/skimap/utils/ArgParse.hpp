@@ -183,11 +183,11 @@ private:
 
     void insertArgument(const Argument& arg) {
         size_t N = arguments_.size();
-        arguments_.push_back(arg);
+        arguments_.emplace_back(arg);
         if (arg.fixed && arg.fixed_nargs <= 1) {
-            variables_.push_back(String());
+            variables_.emplace_back(String());
         } else {
-            variables_.push_back(StringVector());
+            variables_.emplace_back(StringVector());
         }
         if (!arg.short_name.empty()) index_[arg.short_name] = N;
         if (!arg.name.empty()) index_[arg.name] = N;
@@ -287,7 +287,7 @@ public:
                 if (active.fixed && active.fixed_nargs == 1) {
                     variables_[index_[active_name]].castTo<String>() = el;
                 } else {
-                    variables_[index_[active_name]].castTo<StringVector>().push_back(el);
+                    variables_[index_[active_name]].castTo<StringVector>().emplace_back(el);
                 }
                 consumed++;
             } else {
@@ -330,7 +330,7 @@ public:
             if (final.fixed && final.fixed_nargs == 1) {
                 variables_[index_[final_name_]].castTo<String>() = el;
             } else {
-                variables_[index_[final_name_]].castTo<StringVector>().push_back(el);
+                variables_[index_[final_name_]].castTo<StringVector>().emplace_back(el);
             }
             nfinal--;
         }

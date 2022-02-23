@@ -299,7 +299,7 @@ class SkipList
         NodeType *curr_node = header_node_->forwards[1];
         while (curr_node != tail_node_)
         {
-            nodes.push_back(curr_node);
+            nodes.emplace_back(curr_node);
             curr_node = curr_node->forwards[1];
         }
     }
@@ -316,7 +316,7 @@ class SkipList
         NodeType *curr_node = start;
         while (curr_node != tail_node_)
         {
-            nodes.push_back(curr_node);
+            nodes.emplace_back(curr_node);
             if (curr_node->key >= end_key)
                 return;
             curr_node = curr_node->forwards[1];

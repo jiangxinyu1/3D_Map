@@ -97,7 +97,7 @@ const std::vector<float>* PrecomputeValueToProbability()
   {
     for (int value = 0; value != 32768; ++value)
     {
-      result->push_back(SlowValueToProbability(value));
+      result->emplace_back(SlowValueToProbability(value));
     }
   }
   return result;
@@ -114,7 +114,7 @@ const std::vector<float>* const kValueToProbability = PrecomputeValueToProbabili
 std::vector<u_int16_t> ComputeLookupTableToApplyOdds(const float odds)
 {
   std::vector<u_int16_t> result;
-  result.push_back(ProbabilityToValue(ProbabilityFromOdds(odds)));//+ kUpdateMarker
+  result.emplace_back(ProbabilityToValue(ProbabilityFromOdds(odds)));//+ kUpdateMarker
 
   for (int cell = 1; cell != 32768; ++cell)
   {
@@ -123,7 +123,7 @@ std::vector<u_int16_t> ComputeLookupTableToApplyOdds(const float odds)
     //2.把概率转换为odd　然后乘以传入的参数odds
     //3.步骤２的得到的odds，转换为概率
     //4.把概率转换为cell　存入数组中
-    result.push_back(ProbabilityToValue(ProbabilityFromOdds(
+    result.emplace_back(ProbabilityToValue(ProbabilityFromOdds(
                          odds * Odds((*kValueToProbability)[cell])))); //+ kUpdateMarker
   }
   return result;
