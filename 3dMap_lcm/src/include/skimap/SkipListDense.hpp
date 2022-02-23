@@ -108,9 +108,10 @@ class SkipListDense
      * @param min_key min Key value.
      * @param max_key max Key value.
      */
-    SkipListDense(K min_key, K max_key, bool prepare_locks = true) : header_node_(NULL), tail_node_(NULL),
-                                                                     max_current_level_(1), max_level(MAXLEVEL),
-                                                                     min_key_(min_key), max_value_(max_key), size_(0), last_(0)
+    SkipListDense(K min_key, K max_key, bool prepare_locks = true) 
+                             : header_node_(NULL), tail_node_(NULL), 
+                             max_current_level_(1), max_level(MAXLEVEL),
+                             min_key_(min_key), max_value_(max_key), size_(0), last_(0)
     {
         this->key_sizes = long(max_key) - long(min_key);
         // printf("Create Dense List: %d,%d =  %ld\n", min_key, max_key, this->key_sizes);

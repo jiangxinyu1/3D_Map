@@ -1,7 +1,7 @@
 /*
  * @Author: your name
  * @Date: 2022-01-24 18:28:58
- * @LastEditTime: 2022-02-23 16:19:49
+ * @LastEditTime: 2022-02-23 16:56:38
  * @LastEditors: Please set LastEditors
  * @Description: 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  * @FilePath: /test_lcm/src/lcmHandler.cpp
@@ -118,11 +118,8 @@ void integrateMeasurement1(const std::vector<std::vector<int16_t>>& map_points_i
                                                    const std::vector<int16_t>& map_camera_index ) 
 {
   map->enableConcurrencyAccess(true);
-  // #pragma omp parallel shared(points, map)
-  int point_num = 0;
-  std::vector<int> valid_index;
 
-  // 单个index的值对应多个
+  // 单个index的值对应多个 map_point_index
   std::unordered_map<int , std::vector<std::vector<int16_t>>> voxel_index;
 
   // std::vector<std::pair<int , std::vector<int16_t>>> voxel_index;
@@ -134,13 +131,11 @@ void integrateMeasurement1(const std::vector<std::vector<int16_t>>& map_points_i
   // 遍历所有点云的栅格坐标，
   for (int i = 0; i < map_points_index.size(); i++) 
   {
-    point_num ++;
     // 将每一个点插入到map中，如果对应的skipmap(x,y,z)为空，插入voxel，否则对应的data+1
     bool newP = false;
     map->integrateVoxel(map_points_index[i], &voxels[i] , newP);
     if(newP)
     {
-      valid_index.push_back(i);
 
 #if 1  // for update updataMissVoxel 1    
       voxel_index[(map_points_index[i][0] ) * Max_Index_Value + map_points_index[i][1]].push_back(map_points_index[i]);
@@ -156,7 +151,7 @@ void integrateMeasurement1(const std::vector<std::vector<int16_t>>& map_points_i
       tmp.index = (map_points_index[i][0] ) * Max_Index_Value + map_points_index[i][1];
       tmp.map_index = map_points_index[i];
       voxel_index.push_back(tmp);
-#endif      
+#endif
 
     }
   } //for 
@@ -164,7 +159,7 @@ void integrateMeasurement1(const std::vector<std::vector<int16_t>>& map_points_i
   auto updateHitEndTime = getTime();
   std::cout << "[integrateMeasurement1] : update hit time = " << updateHitEndTime - updateHitStartTime << "\n";
 
-  printf("valid_index.size = %i \n, map_points_index.size = %i \n" , (int)valid_index.size() , (int)map_points_index.size());
+  printf("map_points_index.size = %i \n" , (int)map_points_index.size());
   printf("voxel_index.size = %i \n" , (int)voxel_index.size());
 
   auto updateFreeStartTime = getTime();
@@ -176,7 +171,7 @@ void integrateMeasurement1(const std::vector<std::vector<int16_t>>& map_points_i
   auto updateFreeEndTime = getTime();
   std::cout << "[integrateMeasurement1] : update free time = " << updateFreeEndTime - updateFreeStartTime << "\n";
 
-  // printf("point_num  = %i \n" , (int)point_num);
+
   // timings.startTimer("clear");
 
   map->clearVoxelsUpdateFlag();

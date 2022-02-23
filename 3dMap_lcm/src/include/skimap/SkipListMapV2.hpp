@@ -532,9 +532,10 @@ public:
     // 通过迭代器遍历 -> unordered map 的每一个value (x,y,z)
     for(auto it = voxel_index.begin() ; it != voxel_index.end() ; it++)
     {
+      // 取出当前key值对应 xy-index 
       cv::Point2i end(it->second[0][0] , it->second[0][1]);
       std::vector<cv::Point2i> pointset;
-      // 通过划线算法获取每个平面点之上的点集
+      // 通过划线算法获取xy平面点之上的点集
       bresenhamLine(start, end , pointset);
       // 对当前(xy)对应的三维点的高度进行排序
       std::vector<int16_t> vec_z;
@@ -558,22 +559,23 @@ public:
         {
           cluster.push_back(pp);
         }
-        for(int zz = 1 ; zz < vec_z.size() ; zz ++)
+
+        for(int index = 1 ; index < vec_z.size() ; index ++)
         {
-          if(vec_z[zz] - vec_z[zz - 1] > 2)
+          if(vec_z[index] - vec_z[index - 1] > 3)
           {
-            pp.second = vec_z[zz - 1];
+            pp.second = vec_z[index - 1];
             cluster.push_back(pp);
-            pp.first = vec_z[zz];
+            pp.first = vec_z[index];
           }
-          else if(zz = vec_z.size() - 1)
+          else if(index = vec_z.size() - 1)
           {
-            pp.second = vec_z[zz];
+            pp.second = vec_z[index];
             cluster.push_back(pp);
           }
         }//for
         // 结束聚类
-
+        
         const typename X_NODE::NodeType *ylist = _root_list->find(pointset[i].x);
         if (ylist == NULL)
         {
@@ -596,11 +598,13 @@ public:
           for(int z_index = z_index1 ; z_index < z_index2+1 ; z_index++)
           {
             const typename Z_NODE::NodeType *voxel = zlist->value->find(z_index);
+            // 如果之前没有这个voxel，跳过
             if (voxel == NULL) 
             {
               continue;
             }
-            else
+            // 如果当前的voxel当前的
+            else 
             {
               if((voxel->value->w) > 0 && voxel->value->update == false)
               {
@@ -609,6 +613,7 @@ public:
               voxel->value->update = true;
               voxelsUpdate.push_back(voxel);
             }
+
           }
         }
       }
@@ -1205,7 +1210,10 @@ protected:
   boost::mutex mutex_map_mutex;
   std::map<K, boost::mutex *> mutex_map;
 
-  std::vector<const typename  Z_NODE::NodeType *> voxelsUpdate;
+  // 用于记录当前帧被更新的node
+  std::vector<const typename  Z_NODE::NodeType *> voxelsUpdate; 
+
+  // std::vector<const typename  Z_NODE::NodeType *> voxelsUpdate; 
 
   const std::vector<u_int16_t> hit_table_;
   const std::vector<u_int16_t> miss_table_;
