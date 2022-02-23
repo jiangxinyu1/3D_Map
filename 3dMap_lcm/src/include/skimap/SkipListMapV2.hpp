@@ -87,7 +87,7 @@ public:
   };
 
   typedef K Index;
-  typedef SkipList<Index, V *, Z_DEPTH> Z_NODE;
+  typedef SkipListDense<Index, V *, Z_DEPTH> Z_NODE;
   typedef SkipListDense<Index, Z_NODE *, Y_DEPTH> Y_NODE;
   typedef SkipListDense<Index, Y_NODE *, X_DEPTH> X_NODE;
 
