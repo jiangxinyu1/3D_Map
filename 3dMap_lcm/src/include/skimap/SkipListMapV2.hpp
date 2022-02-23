@@ -25,13 +25,20 @@
 
 #define SkipListMapV2_MAX_DEPTH 16
 
+struct voxel_index_node{
+  int index; 
+  std::vector<int16_t> map_index;
+};
+
+
 namespace skimap {
 
-  #define Min_Index_Value -2000 //-400
-  #define Max_Index_Value 2000 //400
+  #define Min_Index_Value -2000 //  map系栅格的最大值
+  #define Max_Index_Value 2000 // map系栅格的最大值
+  #define z_node_min -5 // z 方向栅格的最小值
+  #define z_node_max 15 //z 方向栅格的最大值
 
-  #define z_node_min -5 //-5
-  #define z_node_max 15 //20
+  #define Map_Resolution 0.01
 
   // #define Min_Index_Value -400
   // #define Max_Index_Value 400
@@ -133,21 +140,6 @@ public:
       std::cout << "," << indexToCoordinatesTable_[i] ;
     }
   }
-
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-  SkipListMapV2()
-      : _min_index_value(Min_Index_Value), //std::numeric_limits<K>::min() , std::numeric_limits<K>::max(
-        _max_index_value(Max_Index_Value), _resolution_x(0.01),
-        _resolution_y(0.01), _resolution_z(0.01), _voxel_counter(0),
-        _xlist_counter(0), _ylist_counter(0), _bytes_counter(0),
-        _batch_integration(false), _initialized(false),
-        _self_concurrency_management(false),
-        hit_table_(ComputeLookupTableToApplyOdds(Odds(0.55))),
-        miss_table_(ComputeLookupTableToApplyOdds(Odds(0.46))) 
-        {
-        }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -533,7 +525,7 @@ public:
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   virtual void updataMissVoxel1(const std::vector<int16_t>& map_camera_index, 
-                                                       const std::unordered_map<int,std::vector<std::vector<int16_t>>>& voxel_index) 
+                                                       const std::unordered_map<int,std::vector<std::vector<int16_t>>>& voxel_index)
   {
     // 以相机在map系下的中心作为起点
     cv::Point2i start(map_camera_index[0] , map_camera_index[1]);
@@ -626,6 +618,189 @@ public:
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+  virtual void updataMissVoxel2(const std::vector<int16_t>& map_camera_index, 
+                                                       std::vector<std::pair<int , std::vector<int16_t>>> &voxel_index)
+  {
+    // 以相机在map系下的中心作为起点
+    cv::Point2i start(map_camera_index[0] , map_camera_index[1]);
+    // 通过迭代器遍历 -> unordered map 的每一个value (x,y,z)
+    for(auto it =0 ; it != voxel_index.size() ; it++)
+    {
+      cv::Point2i end(voxel_index[it].second[0] ,voxel_index[it].second[1]);
+      std::vector<cv::Point2i> pointset;
+      // 通过划线算法获取每个平面点之上的点集
+      bresenhamLine(start, end , pointset);
+      // 对当前(xy)对应的三维点的高度进行排序
+      std::vector<int16_t> vec_z;
+      for(auto cell : voxel_index)
+      {
+        vec_z.push_back(cell.second[2]);
+      }
+      std::sort(vec_z.begin() , vec_z.end());
+      //  计算
+      float dis1 = pointDistance(start , end);
+      // 遍历每一个pointSet中的二维free点，计算其到相机中心的距离
+      for(int i = 1 ; i < pointset.size() - 1 ; i++)
+      {
+        float dis2 = pointDistance(start , pointset[i]);
+        float rate = dis2 / dis1;
+
+        // 开始聚类：对高度进行简单的聚类，将聚类的结果存储在cluster中
+        std::vector<std::pair<int , int>> cluster;
+        std::pair<int , int> pp(vec_z[0] , vec_z[0]);
+        if(vec_z.size() == 1) 
+        {
+          cluster.push_back(pp);
+        }
+        for(int zz = 1 ; zz < vec_z.size() ; zz ++)
+        {
+          if(vec_z[zz] - vec_z[zz - 1] > 2)
+          {
+            pp.second = vec_z[zz - 1];
+            cluster.push_back(pp);
+            pp.first = vec_z[zz];
+          }
+          else if(zz = vec_z.size() - 1)
+          {
+            pp.second = vec_z[zz];
+            cluster.push_back(pp);
+          }
+        }//for
+        // 结束聚类
+
+        const typename X_NODE::NodeType *ylist = _root_list->find(pointset[i].x);
+        if (ylist == NULL)
+        {
+          continue;
+        }
+        const typename Y_NODE::NodeType *zlist = ylist->value->find(pointset[i].y);
+        if (zlist == NULL)
+        {
+          continue;
+        }
+
+        for(auto c : cluster)
+        {
+          float z1 = rate * (c.first - map_camera_index[2]) + map_camera_index[2];
+          K z_index1 = K(z1 + 0.5);
+
+          float z2 = rate * (c.second - map_camera_index[2]) + map_camera_index[2];
+          K z_index2 = K(z2 + 0.5);
+          
+          for(int z_index = z_index1 ; z_index < z_index2+1 ; z_index++)
+          {
+            const typename Z_NODE::NodeType *voxel = zlist->value->find(z_index);
+            if (voxel == NULL) 
+            {
+              continue;
+            }
+            else
+            {
+              if((voxel->value->w) > 0 && voxel->value->update == false)
+              {
+                voxel->value->tableValue = miss_table_[voxel->value->tableValue];
+              }
+              voxel->value->update = true;
+              voxelsUpdate.push_back(voxel);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  
+  virtual void updataMissVoxel3(const std::vector<int16_t>& map_camera_index, 
+                                                       std::vector<voxel_index_node> &voxel_index)
+  {
+    // 以相机在map系下的中心作为起点
+    cv::Point2i start(map_camera_index[0] , map_camera_index[1]);
+    // 通过迭代器遍历 -> unordered map 的每一个value (x,y,z)
+    for(auto it =0 ; it != voxel_index.size() ; it++)
+    {
+      cv::Point2i end(voxel_index[it].map_index[0]  ,voxel_index[it].map_index[1]  );
+      std::vector<cv::Point2i> pointset;
+      // 通过划线算法获取每个平面点之上的点集
+      bresenhamLine(start, end , pointset);
+      // 对当前(xy)对应的三维点的高度进行排序
+      std::vector<int16_t> vec_z;
+      for(auto cell : voxel_index)
+      {
+        vec_z.push_back(cell.map_index[2]);
+      }
+      std::sort(vec_z.begin() , vec_z.end());
+      //  计算
+      float dis1 = pointDistance(start , end);
+      // 遍历每一个pointSet中的二维free点，计算其到相机中心的距离
+      for(int i = 1 ; i < pointset.size() - 1 ; i++)
+      {
+        float dis2 = pointDistance(start , pointset[i]);
+        float rate = dis2 / dis1;
+
+        // 开始聚类：对高度进行简单的聚类，将聚类的结果存储在cluster中
+        std::vector<std::pair<int , int>> cluster;
+        std::pair<int , int> pp(vec_z[0] , vec_z[0]);
+        if(vec_z.size() == 1) 
+        {
+          cluster.push_back(pp);
+        }
+        for(int zz = 1 ; zz < vec_z.size() ; zz ++)
+        {
+          if(vec_z[zz] - vec_z[zz - 1] > 2)
+          {
+            pp.second = vec_z[zz - 1];
+            cluster.push_back(pp);
+            pp.first = vec_z[zz];
+          }
+          else if(zz = vec_z.size() - 1)
+          {
+            pp.second = vec_z[zz];
+            cluster.push_back(pp);
+          }
+        }//for
+        // 结束聚类
+
+        const typename X_NODE::NodeType *ylist = _root_list->find(pointset[i].x);
+        if (ylist == NULL)
+        {
+          continue;
+        }
+        const typename Y_NODE::NodeType *zlist = ylist->value->find(pointset[i].y);
+        if (zlist == NULL)
+        {
+          continue;
+        }
+
+        for(auto c : cluster)
+        {
+          float z1 = rate * (c.first - map_camera_index[2]) + map_camera_index[2];
+          K z_index1 = K(z1 + 0.5);
+
+          float z2 = rate * (c.second - map_camera_index[2]) + map_camera_index[2];
+          K z_index2 = K(z2 + 0.5);
+          
+          for(int z_index = z_index1 ; z_index < z_index2+1 ; z_index++)
+          {
+            const typename Z_NODE::NodeType *voxel = zlist->value->find(z_index);
+            if (voxel == NULL) 
+            {
+              continue;
+            }
+            else
+            {
+              if((voxel->value->w) > 0 && voxel->value->update == false)
+              {
+                voxel->value->tableValue = miss_table_[voxel->value->tableValue];
+              }
+              voxel->value->update = true;
+              voxelsUpdate.push_back(voxel);
+            }
+          }
+        }
+      }
+    }
+  }
+
 
   virtual bool integrateVoxel(K ix, K iy, K iz, V *data) 
   {
@@ -673,6 +848,16 @@ public:
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   
+
+  /**
+   * @brief 
+   * 
+   * @param map_point_index  点在地图栅格下的坐标 ( index_x , index_y , index_z )
+   * @param data 
+   * @param newP 
+   * @return true 
+   * @return false 
+   */
   virtual bool integrateVoxel(const std::vector<int16_t>& map_point_index, V *data , bool& newP) 
   {
     if (this->hasConcurrencyAccess())

@@ -1,7 +1,7 @@
 /*
  * @Author: your name
  * @Date: 2022-01-24 18:28:58
- * @LastEditTime: 2022-02-23 11:37:14
+ * @LastEditTime: 2022-02-23 16:19:49
  * @LastEditors: Please set LastEditors
  * @Description: 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  * @FilePath: /test_lcm/src/lcmHandler.cpp
@@ -51,6 +51,7 @@ enum VisualizationType {
   VOXEL_MAP,
   VOXEL_GRID,
 };
+
 
 struct SensorMeasurement 
 {
@@ -120,11 +121,17 @@ void integrateMeasurement1(const std::vector<std::vector<int16_t>>& map_points_i
   // #pragma omp parallel shared(points, map)
   int point_num = 0;
   std::vector<int> valid_index;
+
+  // 单个index的值对应多个
   std::unordered_map<int , std::vector<std::vector<int16_t>>> voxel_index;
+
+  // std::vector<std::pair<int , std::vector<int16_t>>> voxel_index;
+  // std::vector<voxel_index_node> voxel_index;
 
   // 遍历 map_points_index，更新 hit point 的概率值
   auto updateHitStartTime = getTime();
   
+  // 遍历所有点云的栅格坐标，
   for (int i = 0; i < map_points_index.size(); i++) 
   {
     point_num ++;
@@ -134,19 +141,38 @@ void integrateMeasurement1(const std::vector<std::vector<int16_t>>& map_points_i
     if(newP)
     {
       valid_index.push_back(i);
-      // voxel_index[(map_points_index[i][0] + Max_Index_Value) * Max_Index_Value + map_points_index[i][1]].push_back(map_points_index[i]);
+
+#if 1  // for update updataMissVoxel 1    
       voxel_index[(map_points_index[i][0] ) * Max_Index_Value + map_points_index[i][1]].push_back(map_points_index[i]);
+#endif 
+
+#if 0 // for update updataMissVoxel 2
+      std::pair<int ,std::vector<int16_t>> pp((map_points_index[i][0] ) * Max_Index_Value + map_points_index[i][1] ,map_points_index[i]);
+      voxel_index.push_back(pp);
+#endif
+
+#if 0 // for update updataMissVoxel 3
+      voxel_index_node tmp;
+      tmp.index = (map_points_index[i][0] ) * Max_Index_Value + map_points_index[i][1];
+      tmp.map_index = map_points_index[i];
+      voxel_index.push_back(tmp);
+#endif      
+
     }
   } //for 
 
   auto updateHitEndTime = getTime();
   std::cout << "[integrateMeasurement1] : update hit time = " << updateHitEndTime - updateHitStartTime << "\n";
 
-  // printf("valid_index.size = %i , map_points_index.size = %i \n" , (int)valid_index.size() , (int)map_points_index.size());
-  // printf("voxel_index.size = %i \n" , (int)voxel_index.size());
+  printf("valid_index.size = %i \n, map_points_index.size = %i \n" , (int)valid_index.size() , (int)map_points_index.size());
+  printf("voxel_index.size = %i \n" , (int)voxel_index.size());
 
   auto updateFreeStartTime = getTime();
+  
   map->updataMissVoxel1(map_camera_index, voxel_index);
+  // map->updataMissVoxel2(map_camera_index, voxel_index);
+  // map->updataMissVoxel3(map_camera_index, voxel_index);
+  
   auto updateFreeEndTime = getTime();
   std::cout << "[integrateMeasurement1] : update free time = " << updateFreeEndTime - updateFreeStartTime << "\n";
 
@@ -198,6 +224,7 @@ void getMeasurePointsFromPointCloud(const lcm_sensor_msgs::PointCloud &msg,
     {
       continue;
     }
+    // 转到map系下
     {
       auto x = map_point[0];
       auto y = map_point[1];
@@ -401,7 +428,7 @@ void lcmHandler::exit()
 void lcmHandler::skiMapBuilderThread()
 {
   // set mapParameters
-  mapParameters.map_resolution = 0.01f;
+  mapParameters.map_resolution = Map_Resolution;
   mapParameters.ground_level = 0.05f;
   mapParameters.min_voxel_weight = 50;
   mapParameters.enable_chisel = false;
@@ -427,7 +454,6 @@ void lcmHandler::skiMapBuilderThread()
     std::unique_lock<std::mutex> lk(*pointcloud_buffer_mutex);
     if (pointCloudBuffer.size() == 0 )
     {
-      // std::cout << "[skiMapBuilderThread]: no cloud in buffer ... \n";
       continue;
     }
     std::cout << "\n[skiMapBuilderThread]: >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>   Begin a new frame  ... \n";
@@ -449,9 +475,9 @@ void lcmHandler::skiMapBuilderThread()
     SensorMeasurement measurement;
     std::vector<std::vector<int16_t>> map_points_index;
     Eigen::Matrix3f base_to_camera_rotation_matrix = Eigen::Matrix3f::Identity(); // camera  在 map 下 pose 
-    Eigen::Vector3f base_to_camera_transvec(0.0f,0.0f,0.0f);
-    const double depthThrCamera = 0.5;
-    const float yThrMap = -0.4;
+    Eigen::Vector3f base_to_camera_transvec(0.0f,0.046f,0.0f);
+    const float depthThrCamera = 0.5;
+    const float yThrMap = - depthThrCamera;
     getMeasurePointsFromPointCloud(curCloud,
                                                                 base_to_camera_rotation_matrix,
                                                                 base_to_camera_transvec,
