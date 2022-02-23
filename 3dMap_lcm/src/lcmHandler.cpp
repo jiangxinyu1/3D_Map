@@ -1,7 +1,7 @@
 /*
  * @Author: your name
  * @Date: 2022-01-24 18:28:58
- * @LastEditTime: 2022-02-22 20:35:18
+ * @LastEditTime: 2022-02-23 11:15:25
  * @LastEditors: Please set LastEditors
  * @Description: 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  * @FilePath: /test_lcm/src/lcmHandler.cpp
@@ -194,6 +194,16 @@ void getMeasurePointsFromPointCloud(const lcm_sensor_msgs::PointCloud &msg,
     if (map_point[1] < yThrMap || map_point[1] > 0 )
     {
       continue;
+    }
+    {
+      auto x = map_point[0];
+      auto y = map_point[1];
+      auto z = map_point[2];
+      
+      map_point[0] = z;
+      map_point[1] = -x;
+      map_point[2] = - y;
+
     }
     // 4 ：turn to  map index
 #if 1
@@ -403,7 +413,8 @@ void lcmHandler::skiMapBuilderThread()
   while(thread_exit_flag == 0 )
   {
     // sleep(1);
-
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     /*
      * @brief （1）从pointCloudBuffer中获取点云 
      * 
@@ -424,6 +435,7 @@ void lcmHandler::skiMapBuilderThread()
     auto getPointCloudEndTime = getTime();
     std::cout << "[skiMapBuilderThread]: get PointCloud time = " << getPointCloudEndTime - startTime_ << "\n";
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     /*
      * @brief （2）获取用于建图的点云数据measurement，滤点，用外参将点云转到map系下
@@ -433,10 +445,10 @@ void lcmHandler::skiMapBuilderThread()
 
     SensorMeasurement measurement;
     std::vector<std::vector<int16_t>> map_points_index;
-    Eigen::Matrix3f base_to_camera_rotation_matrix = Eigen::Matrix3f::Identity();
+    Eigen::Matrix3f base_to_camera_rotation_matrix = Eigen::Matrix3f::Identity(); // camera  在 map 下 pose 
     Eigen::Vector3f base_to_camera_transvec(0.0f,0.0f,0.0f);
     const double depthThrCamera = 0.5;
-    const float yThrMap = -0.35;
+    const float yThrMap = -0.4;
     getMeasurePointsFromPointCloud(curCloud,
                                                                 base_to_camera_rotation_matrix,
                                                                 base_to_camera_transvec,
@@ -461,9 +473,14 @@ void lcmHandler::skiMapBuilderThread()
     auto makeMapPointsEndTime = getTime();
     std::cout << "[skiMapBuilderThread]: make map points time =  "<<  makeMapPointsEndTime - makeMapPointsStartTime <<" \n";
 
-    /*    
-    * 5  Map Integration
-    */
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    
+    /*
+     * @brief （3）update map
+     * 
+     */
     auto mapIntegrationStartTime_ = getTime();
     integrateMeasurement1(map_points_index, voxels, map, map_camera_index);
     auto mapIntegrationEndTime_ = getTime();
