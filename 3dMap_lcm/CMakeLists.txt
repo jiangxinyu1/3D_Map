@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(skiMap_node)
 
+
+set( CMAKE_BUILD_TYPE "Release")
+
 set(Thirdparty_DIR ~/cleanRobot/thirdparty)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${Thirdparty_DIR}/CMakeModules")
 set( EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)

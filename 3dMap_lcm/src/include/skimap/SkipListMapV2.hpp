@@ -139,8 +139,8 @@ public:
 
   SkipListMapV2()
       : _min_index_value(Min_Index_Value), //std::numeric_limits<K>::min() , std::numeric_limits<K>::max(
-        _max_index_value(Max_Index_Value), _resolution_x(resolution),
-        _resolution_y(resolution), _resolution_z(resolution), _voxel_counter(0),
+        _max_index_value(Max_Index_Value), _resolution_x(0.01),
+        _resolution_y(0.01), _resolution_z(0.01), _voxel_counter(0),
         _xlist_counter(0), _ylist_counter(0), _bytes_counter(0),
         _batch_integration(false), _initialized(false),
         _self_concurrency_management(false),
@@ -348,9 +348,9 @@ public:
 
   bool integrateVoxelWithTable(int x, int  y, int z, K& ix , K& iy , K& iz) 
   {
-    ix = (K)getValFromCoordinatesToIndexTable(x);
-    iy = (K)getValFromCoordinatesToIndexTable(y);
-    iz = (K)getValFromCoordinatesToIndexTable(z);
+    ix = getValFromCoordinatesToIndexTable(x);
+    iy = getValFromCoordinatesToIndexTable(y);
+    iz = getValFromCoordinatesToIndexTable(z);
     return true;
   }
 

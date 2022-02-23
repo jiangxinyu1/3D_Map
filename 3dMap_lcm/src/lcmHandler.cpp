@@ -1,7 +1,7 @@
 /*
  * @Author: your name
  * @Date: 2022-01-24 18:28:58
- * @LastEditTime: 2022-02-22 15:24:52
+ * @LastEditTime: 2022-02-22 20:35:18
  * @LastEditors: Please set LastEditors
  * @Description: 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  * @FilePath: /test_lcm/src/lcmHandler.cpp
@@ -180,35 +180,39 @@ void getMeasurePointsFromPointCloud(const lcm_sensor_msgs::PointCloud &msg,
   // const float yThrMap = -0.35;
   for (int i = 0 ;  i < msg.points.size(); i++)
   {
-    // Todo1 : 过滤掉在相机系下没一定深度值内的点及FOV外的点
-    if ((msg.points[i].x == 0 && msg.points[i].y == 0 && msg.points[i].z == 0) || msg.points[i].z > depthThrCamera)
+    // debugPrint("A");
+    //  1 : 过滤掉在相机系下没一定深度值内的点及FOV外的点
+    if ( msg.points[i].z < 0.01 || msg.points[i].z > depthThrCamera)
     {
       continue;
     }
-    // Todo 2 ：将单个点云转换到map系下
+    // debugPrint("B");
+    // 2 ：将单个点云转换到map系下
     Eigen::Vector3f camera_point(float(msg.points[i].x),float(msg.points[i].y),float(msg.points[i].z));
     Eigen::Vector3f map_point = base_to_camera_rotation*camera_point + base_to_camera_transvec;
-    // Todo 3 : 过滤掉map下过高的点及地面以下的点
+    // 3 : 过滤掉map下过高的点及地面以下的点
     if (map_point[1] < yThrMap || map_point[1] > 0 )
     {
       continue;
     }
-
-    // Todo 4 ：turn to  map index
+    // 4 ：turn to  map index
+#if 1
     int16_t ix, iy ,iz;
-    if(map->integrateVoxelWithTable((map_point[0]*1000), 
-                                                              (map_point[1]*1000),
-                                                              (map_point[2]*1000),
+    if(map->integrateVoxelWithTable(int(map_point[0]*1000), 
+                                                              int(map_point[1]*1000),
+                                                              int(map_point[2]*1000),
                                                                ix, iy, iz))
     {
+      // debugPrint("D");
       std::vector<int16_t> data{ix , iy , iz};
-      map_points_index[i] = data;
+      map_points_index.push_back(data);
       ColorPoint cp;
       cp.point.x = msg.points[i].x;
       cp.point.y = msg.points[i].y;
       cp.point.z = msg.points[i].z;
       camera_points.push_back(cp);
     }
+#endif    
   }// for
 }
 
@@ -446,12 +450,11 @@ void lcmHandler::skiMapBuilderThread()
 
     // std::cout << "[skiMapBuilderThread]: measurement.points.size = " << measurement.points.size() << "\n";
 
-
     // 将camera在map系下的原点位置存为整数
     int16_t ix, iy, iz;
-    map->integrateVoxelWithTable(base_to_camera_transvec[0]*1000, 
-                                                           base_to_camera_transvec[1]*1000, 
-                                                           base_to_camera_transvec[2]*1000, 
+    map->integrateVoxelWithTable(int(base_to_camera_transvec[0]*1000), 
+                                                           int(base_to_camera_transvec[1]*1000), 
+                                                           int(base_to_camera_transvec[2]*1000), 
                                                            ix, iy, iz);
     std::vector<int16_t> map_camera_index{ix , iy , iz};
 
