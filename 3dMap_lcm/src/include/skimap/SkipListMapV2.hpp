@@ -31,7 +31,7 @@ namespace skimap {
   #define Max_Index_Value 2000 //400
 
   #define z_node_min -5 //-5
-  #define z_node_max 20 //20
+  #define z_node_max 15 //20
 
   // #define Min_Index_Value -400
   // #define Max_Index_Value 400
