@@ -852,8 +852,6 @@ public:
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  
-
   /**
    * @brief 
    * 
@@ -862,7 +860,7 @@ public:
    * @param newP 
    * @return true 
    * @return false 
-   */
+   */  
   virtual bool integrateVoxel(const std::vector<int16_t>& map_point_index, V *data , bool& newP) 
   {
     if (this->hasConcurrencyAccess())
@@ -878,7 +876,7 @@ public:
     {
       zlist = ylist->value->insert(map_point_index[1],new Z_NODE(z_node_min, z_node_max));
     }
-    // 如果 z_index 在指定范围内，
+    // 如果 z_index 在指定范围内
     if(map_point_index[2] > z_node_min && map_point_index[2] < z_node_max)
     {
       const typename Z_NODE::NodeType *voxel = zlist->value->find(map_point_index[2]);
@@ -894,7 +892,8 @@ public:
       {
         if(voxel->value->update == false)
         {
-          *(voxel->value) = *(voxel->value) + *data;
+          // tableValue相加 
+          // *(voxel->value) = *(voxel->value) + *data;
           voxel->value->tableValue = hit_table_[voxel->value->tableValue];
           voxel->value->update = true;
           voxelsUpdate.emplace_back(voxel);

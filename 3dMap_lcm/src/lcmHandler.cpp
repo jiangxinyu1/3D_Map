@@ -1,7 +1,7 @@
 /*
  * @Author: your name
  * @Date: 2022-01-24 18:28:58
- * @LastEditTime: 2022-02-23 19:12:38
+ * @LastEditTime: 2022-02-24 11:55:29
  * @LastEditors: Please set LastEditors
  * @Description: 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  * @FilePath: /test_lcm/src/lcmHandler.cpp
@@ -113,7 +113,7 @@ struct IntegrationParameters
  * @param map_camera_index 相机在map下的栅格化位置
  */
 void integrateMeasurement1(const std::vector<std::vector<int16_t>>& map_points_index, 
-                                                   std::vector<VoxelDataColor>& voxels, 
+                                                  VoxelDataColor &voxelInit,
                                                    SKIMAP *&map,
                                                    const std::vector<int16_t>& map_camera_index ) 
 {
@@ -133,7 +133,7 @@ void integrateMeasurement1(const std::vector<std::vector<int16_t>>& map_points_i
   {
     // 将每一个点插入到map中，如果对应的skipmap(x,y,z)为空，插入voxel，否则对应的data+1
     bool newP = false;
-    map->integrateVoxel(map_points_index[i], &voxels[i] , newP);
+    map->integrateVoxel(map_points_index[i], &voxelInit , newP);
     if(newP)
     {
 
@@ -179,6 +179,7 @@ void integrateMeasurement1(const std::vector<std::vector<int16_t>>& map_points_i
   // timings.printTime("clear");
   // integrationParameters.integration_counter++;
 }
+
 
 
 /**
@@ -302,7 +303,7 @@ void fillVisualizationMarkerWithVoxels( lcm_visualization_msgs::Marker &voxels_m
   //   // cv::cvtColor(colorSpace, colorSpace, CV_HSV2BGR);
   // }
 
-  for (int i = 0; i < voxels.size(); i++) 
+  for (int i = 0; i < voxels.size(); i++)
   {
     if(ValueToProbability(voxels[i].data->tableValue) < 0.7)
       continue;
@@ -505,8 +506,10 @@ void lcmHandler::skiMapBuilderThread()
      * 
      */
     auto mapIntegrationStartTime_ = getTime();
-    std::vector<VoxelDataColor> voxels (measurement.points.size(),VoxelDataColor (0,255,0,1.0));
-    integrateMeasurement1(map_points_index, voxels, map, map_camera_index);
+    // 默认体素的初始值为0，权重为1 
+    VoxelDataColor voxelInit (0,255,0,1.0);
+    integrateMeasurement1(map_points_index, voxelInit, map, map_camera_index);
+
     auto mapIntegrationEndTime_ = getTime();
     std::cout << "[skiMapBuilderThread]: integrateMeasurement  time =  "<<  mapIntegrationEndTime_ - mapIntegrationStartTime_ <<" \n";
 
@@ -521,7 +524,7 @@ void lcmHandler::skiMapBuilderThread()
     std::vector<Voxel3D> voxels1; 
     map->fetchVoxels(voxels1); // voxels存储所有map中的体素
     auto mapBuilderEndTime_ = getTime();
-    std::cout << "[skiMapBuilderThread]: fetchVoxels  time =  "<<  mapBuilderEndTime_ - mapBuilderStartTime_ <<" \n";
+    std::cout << "[skiMapBuilderThread]: make voxels  time =  "<<  mapBuilderEndTime_ - mapBuilderStartTime_ <<" \n";
 
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
