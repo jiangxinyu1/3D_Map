@@ -1,7 +1,7 @@
 /*
  * @Author: your name
  * @Date: 2022-01-24 18:29:14
- * @LastEditTime: 2022-02-21 11:13:45
+ * @LastEditTime: 2022-02-24 14:53:59
  * @LastEditors: Please set LastEditors
  * @Description: 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  * @FilePath: /test_lcm/src/lcmHandler.h
@@ -27,6 +27,8 @@
 #include "lcm_std_msgs/Int16.hpp"
 #include "lcm_std_msgs/Float32MultiArray.hpp"
 #include "lcm_msgs/lcm_sensor_msgs/PointCloud.hpp"
+#include "lcm_msgs/lcm_nav_msgs/Odometry.hpp"
+#include "lcm_msgs/lcm_geometry_msgs/PoseWithCovariance.hpp"
 #include "lcm_msgs/lcm_geometry_msgs/Point32.hpp"
 #include "lcm_msgs/lcm_visualization_msgs/Marker.hpp"
 #include "lcm_msgs/lcm_visualization_msgs/MarkerArray.hpp"
@@ -49,15 +51,25 @@ public:
 
   void cmdCallback(const lcm::ReceiveBuffer* rbuf, const std::string& chan, const lcm_std_msgs::Float32MultiArray* cmd_in);
   void pointCloudCallback(const lcm::ReceiveBuffer *rbuf, const std::string &chan, const lcm_sensor_msgs::PointCloud* cloud);
+  void getRobotPoseCallback(const lcm::ReceiveBuffer *rbuf, const std::string &chan,  const lcm_nav_msgs::Odometry* msg);
+
   void skiMapBuilderThread();
   void run();
   void exit();
 
   std::queue<lcm_sensor_msgs::PointCloud> pointCloudBuffer;
-  // std::mutex *pointcloud_buffer_mutex;
+  std::queue<lcm_nav_msgs::Odometry> robotPoseBuffer;
+
   const int pointCloudBufferMaxSize = 5;
   std::mutex *pointcloud_buffer_mutex;
   bool pointcloud_buffer_have=false;
+
+
+  const int robotPoseBufferMaxSize = 5;
+  std::mutex *robot_pose_buffer_mutex;
+  bool robot_pose_buffer_have=false;
+  
+
   std::thread *skiMap_builder_thread;
   std::atomic<int> thread_exit_flag;
 

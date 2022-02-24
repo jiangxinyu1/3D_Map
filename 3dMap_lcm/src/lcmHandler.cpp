@@ -1,7 +1,7 @@
 /*
  * @Author: your name
  * @Date: 2022-01-24 18:28:58
- * @LastEditTime: 2022-02-24 11:55:29
+ * @LastEditTime: 2022-02-24 21:28:40
  * @LastEditors: Please set LastEditors
  * @Description: 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  * @FilePath: /test_lcm/src/lcmHandler.cpp
@@ -55,7 +55,6 @@ enum VisualizationType {
 
 struct SensorMeasurement 
 {
-  // ros::Time stamp;
   lcm_ros::Time stamp;
   std::vector<ColorPoint> points;
   std::vector<ColorPoint> chisel_points;
@@ -86,9 +85,6 @@ struct SensorMeasurement
 #pragma omp critical
       points.insert(points.end(), new_points.begin(), new_points.end());
     }
-
-    //        points.insert(points.end(), chisel_points.begin(),
-    //        chisel_points.end());
   }
 };
 
@@ -104,6 +100,30 @@ struct IntegrationParameters
 
 
 
+
+void setRotationMat(Eigen::Matrix3f &RotationMat_ , const float &angleX_, const float &angleY_, const float &angleZ_)
+{
+    Eigen::Matrix3f Rotation_Y = Eigen::Matrix3f::Identity();
+    Eigen::Matrix3f Rotation_Z = Eigen::Matrix3f::Identity();
+    Eigen::Matrix3f Rotation_X = Eigen::Matrix3f::Identity();
+
+    // float cosAngleX = std::cos(DEG2RAD(angleX_));
+    // float sinAngleX = std::sin(DEG2RAD(angleX_));
+    // Rotation_X << 1,0,0,
+    //                           0,cosAngleX,-sinAngleX,
+    //                           0,sinAngleX,cosAngleX;
+
+    
+    float cosAngleZ = std::cos(DEG2RAD(angleZ_));
+    float sinAngleZ = std::sin(DEG2RAD(angleZ_));
+    Rotation_Z << cosAngleZ , -sinAngleZ, 0 ,
+                             sinAngleZ, cosAngleZ,0,
+                             0,0,1;
+    RotationMat_ = Rotation_Z * Rotation_Y * Rotation_X;   
+}
+
+
+
 /**
  * @brief 
  * 
@@ -113,7 +133,7 @@ struct IntegrationParameters
  * @param map_camera_index 相机在map下的栅格化位置
  */
 void integrateMeasurement1(const std::vector<std::vector<int16_t>>& map_points_index, 
-                                                  VoxelDataColor &voxelInit,
+                                                   VoxelDataColor &voxelInit,
                                                    SKIMAP *&map,
                                                    const std::vector<int16_t>& map_camera_index ) 
 {
@@ -186,22 +206,23 @@ void integrateMeasurement1(const std::vector<std::vector<int16_t>>& map_points_i
  * @brief Get the Measure Points From Point Cloud object
  * 
  * @param msg 
- * @param base_to_camera_rotation 
- * @param base_to_camera_transvec 
+ * @param RobotCameraRotationMatrix 
+ * @param RobotCameraTransvec 
  * @param camera_points 
  * @param map_points_index 
  * @param depthThr 
  */
 void getMeasurePointsFromPointCloud(const lcm_sensor_msgs::PointCloud &msg,
-                                                                     const Eigen::Matrix3f &base_to_camera_rotation,
-                                                                     const Eigen::Vector3f &base_to_camera_transvec,
+                                                                     const Eigen::Matrix3f &RobotCameraRotationMatrix,
+                                                                     const Eigen::Vector3f &RobotCameraTransvec,
+                                                                     const Eigen::Matrix3f &MapRobotRotationMatrix,
+                                                                     const Eigen::Vector3f &MapRobotTransvec,
                                                                      std::vector<ColorPoint> &camera_points,
                                                                      std::vector<std::vector<int16_t>> &map_points_index,
                                                                      const float & depthThrCamera,
                                                                      const float & yThrMap)
 {
   // 遍历点云数据
-  const float xThrCamra = depthThrCamera*1.5;
   // const float yThrMap = -0.35;
   for (int i = 0 ;  i < msg.points.size(); i++)
   {
@@ -211,25 +232,28 @@ void getMeasurePointsFromPointCloud(const lcm_sensor_msgs::PointCloud &msg,
     {
       continue;
     }
-    // debugPrint("B");
-    // 2 ：将单个点云转换到map系下
+    // 2 ：将单个点云转换到robot系下
     Eigen::Vector3f camera_point(float(msg.points[i].x),float(msg.points[i].y),float(msg.points[i].z));
-    Eigen::Vector3f map_point = base_to_camera_rotation*camera_point + base_to_camera_transvec;
+    Eigen::Vector3f robot_point = RobotCameraRotationMatrix*camera_point + RobotCameraTransvec;
+
+    // camera 和 robot 的坐标系方向不同
+    {
+      auto x = robot_point[0];
+      auto y = robot_point[1];
+      auto z = robot_point[2];
+      
+      robot_point[0] = z;
+      robot_point[1] = -x;
+      robot_point[2] = - y;
+    }
+
+    Eigen::Vector3f map_point = MapRobotRotationMatrix*robot_point + MapRobotTransvec;
+
+
     // 3 : 过滤掉map下过高的点及地面以下的点
-    if (map_point[1] < yThrMap || map_point[1] > 0 )
+    if (map_point[2] > yThrMap || map_point[2] < 0 )
     {
       continue;
-    }
-    // 转到map系下
-    {
-      auto x = map_point[0];
-      auto y = map_point[1];
-      auto z = map_point[2];
-      
-      map_point[0] = z;
-      map_point[1] = -x;
-      map_point[2] = - y;
-
     }
     // 4 ：turn to  map index
 #if 1
@@ -335,7 +359,7 @@ void fillVisualizationMarkerWithVoxels( lcm_visualization_msgs::Marker &voxels_m
   voxels_marker.pose.orientation.x = 0;
   voxels_marker.pose.orientation.y = 0;
   voxels_marker.pose.orientation.z = 0;
-  voxels_marker.pose.orientation.w = 0;
+  voxels_marker.pose.orientation.w =0;
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -354,6 +378,7 @@ lcmHandler::lcmHandler()
   // 在构造函数中注册回调函数，如果需要触发式的发布，则在callback中进行发布
   // node_->subscribe("slam_cmd", &lcmHandler::cmdCallback, this);
   node_->subscribe("pointcloud_3d",&lcmHandler::pointCloudCallback,this);
+  node_->subscribe("good_odom",&lcmHandler::getRobotPoseCallback,this);
 }
 
 lcmHandler::~lcmHandler()
@@ -376,13 +401,21 @@ void lcmHandler::cmdCallback(const lcm::ReceiveBuffer* rbuf, const std::string& 
   printf("[cmdCallback] : out ... \n");
 }
 
+
+/**
+ * @brief 
+ * 
+ * @param rbuf 
+ * @param chan 
+ * @param cloud 
+ */
 void lcmHandler::pointCloudCallback(const lcm::ReceiveBuffer *rbuf, const std::string &chan, const lcm_sensor_msgs::PointCloud* cloud)
 {
-  // std::cout << "[pointCloudCallback]: The number of points = " << cloud->n_points << "\n";
+  std::cout << "[pointCloudCallback]: The number of points = " << cloud->n_points << "\n";
   lcm_sensor_msgs::PointCloud info = *cloud;
   std::unique_lock<std::mutex> lk(*pointcloud_buffer_mutex);
   
-  if (pointCloudBuffer.size() > 6 )
+  if (pointCloudBuffer.size() > pointCloudBufferMaxSize )
   {
       pointCloudBuffer.pop();
   }
@@ -391,6 +424,21 @@ void lcmHandler::pointCloudCallback(const lcm::ReceiveBuffer *rbuf, const std::s
   // std::cout << "[pointCloudCallback] : time stamp = " << info.header.stamp.sec << "\n";
   // std::cout << "[pointCloudCallback] : buffer size = " << pointCloudBuffer.size() << "\n";
 }
+
+
+
+void lcmHandler::getRobotPoseCallback(const lcm::ReceiveBuffer *rbuf, const std::string &chan, const lcm_nav_msgs::Odometry* msg)
+{
+  // std::cout << "[getRobotPoseCallback]: The msg  child_frame_id = " << msg->child_frame_id << "\n";
+  static lcm_nav_msgs::Odometry  robot_pose = *msg;
+  std::unique_lock<std::mutex> lock_(*pointcloud_buffer_mutex);
+  if (robotPoseBuffer.size() > robotPoseBufferMaxSize )
+  {
+      robotPoseBuffer.pop();
+  }
+  robotPoseBuffer.push(robot_pose);
+}
+
 
 void lcmHandler::run()
 {
@@ -445,19 +493,28 @@ void lcmHandler::skiMapBuilderThread()
      * @brief （1）从pointCloudBuffer中获取点云 
      * 
      */
+     
     auto startTime_ = getTime();
 
-    std::unique_lock<std::mutex> lk(*pointcloud_buffer_mutex);
-    if ( pointCloudBuffer.empty() || pointCloudBuffer.size() == 0 )
+    std::unique_lock<std::mutex> lk1(*pointcloud_buffer_mutex);
+
+    if ( pointCloudBuffer.empty() || robotPoseBuffer.empty() )
     {
       usleep(20);
       continue;
     }
     std::cout << "\n[skiMapBuilderThread]: >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>   Begin a new frame  ... \n";
+    debugPrint("1");
     // 从pointCloudBiffer中取出点云
     lcm_sensor_msgs::PointCloud curCloud =  pointCloudBuffer.front();
     pointCloudBuffer.pop();
-    lk.unlock();
+    lcm_nav_msgs::Odometry curPose =  robotPoseBuffer.front();
+    robotPoseBuffer.pop();
+    
+    lk1.unlock();
+    
+
+
     auto getPointCloudEndTime = getTime();
     std::cout << "[skiMapBuilderThread]: get PointCloud time = " << getPointCloudEndTime - startTime_ << "\n";
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -467,30 +524,44 @@ void lcmHandler::skiMapBuilderThread()
      * @brief （2）获取用于建图的点云数据measurement，滤点，用外参将点云转到map系下
      * 
      */
+     debugPrint("2");
     auto makeMapPointsStartTime = getTime();
 
     SensorMeasurement measurement;
     std::vector<std::vector<int16_t>> map_points_index;
-    Eigen::Matrix3f base_to_camera_rotation_matrix = Eigen::Matrix3f::Identity(); // camera  在 map 下 pose 
-    Eigen::Vector3f base_to_camera_transvec(0.0f,0.046f,0.0f);
+
+    // 相机外参
+    Eigen::Matrix3f RobotCameraRotationMatrix = Eigen::Matrix3f::Identity(); // camera  在 map 下 pose 
+    Eigen::Vector3f RobotCameraTransvec(0.0f,0.046f,0.0f);
+
+    // 机器人Pose
+    Eigen::Matrix3f MapRobotRotationMatrix = Eigen::Matrix3f::Identity();
+    Eigen::Vector3f MapRobotTransvec (curPose.pose.pose.position.x, 
+                                                                  curPose.pose.pose.position.y, 
+                                                                  0.0);
+    setRotationMat(MapRobotRotationMatrix,0.f,0.f,(float)curPose.pose.pose.position.z);
+
+
     const float depthThrCamera = 0.5;
-    const float yThrMap = - depthThrCamera;
+    const float yThrMap = depthThrCamera;
     getMeasurePointsFromPointCloud(curCloud,
-                                                                base_to_camera_rotation_matrix,
-                                                                base_to_camera_transvec,
+                                                                RobotCameraRotationMatrix,
+                                                                RobotCameraTransvec,
+                                                                MapRobotRotationMatrix,
+                                                                MapRobotTransvec,
                                                                 measurement.points,
                                                                 map_points_index,
                                                                 depthThrCamera,
                                                                 yThrMap);
 
     measurement.stamp = curCloud.header.stamp;
-    // std::cout << "[skiMapBuilderThread]: measurement.points.size = " << measurement.points.size() << "\n";
+    std::cout << "[skiMapBuilderThread]: measurement.points.size = " << measurement.points.size() << "\n";
 
     // 将camera在map系下的原点位置存为整数
     int16_t ix, iy, iz;
-    map->integrateVoxelWithTable(int(base_to_camera_transvec[0]*1000), 
-                                                           int(base_to_camera_transvec[1]*1000), 
-                                                           int(base_to_camera_transvec[2]*1000), 
+    map->integrateVoxelWithTable(int(RobotCameraTransvec[0]*1000), 
+                                                           int(RobotCameraTransvec[1]*1000), 
+                                                           int(RobotCameraTransvec[2]*1000), 
                                                            ix, iy, iz);
     std::vector<int16_t> map_camera_index{ix , iy , iz};
 
@@ -500,7 +571,7 @@ void lcmHandler::skiMapBuilderThread()
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    
+    debugPrint("3");
     /*
      * @brief （3）update map
      * 
