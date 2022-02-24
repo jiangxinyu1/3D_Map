@@ -1,7 +1,7 @@
 /*
  * @Author: your name
  * @Date: 2022-01-24 18:28:58
- * @LastEditTime: 2022-02-23 19:09:37
+ * @LastEditTime: 2022-02-23 19:12:38
  * @LastEditors: Please set LastEditors
  * @Description: 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  * @FilePath: /test_lcm/src/lcmHandler.cpp
@@ -447,7 +447,7 @@ void lcmHandler::skiMapBuilderThread()
     auto startTime_ = getTime();
 
     std::unique_lock<std::mutex> lk(*pointcloud_buffer_mutex);
-    if (pointCloudBuffer.size() == 0 )
+    if ( pointCloudBuffer.empty() || pointCloudBuffer.size() == 0 )
     {
       usleep(20);
       continue;
