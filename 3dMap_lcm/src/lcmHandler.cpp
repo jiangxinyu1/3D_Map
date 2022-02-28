@@ -1,7 +1,7 @@
 /*
  * @Author: your name
  * @Date: 2022-01-24 18:28:58
- * @LastEditTime: 2022-02-24 21:28:40
+ * @LastEditTime: 2022-02-25 10:57:38
  * @LastEditors: Please set LastEditors
  * @Description: 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  * @FilePath: /test_lcm/src/lcmHandler.cpp
@@ -377,7 +377,7 @@ lcmHandler::lcmHandler()
   }
   // 在构造函数中注册回调函数，如果需要触发式的发布，则在callback中进行发布
   // node_->subscribe("slam_cmd", &lcmHandler::cmdCallback, this);
-  node_->subscribe("pointcloud_3d",&lcmHandler::pointCloudCallback,this);
+  node_->subscribe("pointcloud_obst",&lcmHandler::pointCloudCallback,this);
   node_->subscribe("good_odom",&lcmHandler::getRobotPoseCallback,this);
 }
 
@@ -411,7 +411,7 @@ void lcmHandler::cmdCallback(const lcm::ReceiveBuffer* rbuf, const std::string& 
  */
 void lcmHandler::pointCloudCallback(const lcm::ReceiveBuffer *rbuf, const std::string &chan, const lcm_sensor_msgs::PointCloud* cloud)
 {
-  std::cout << "[pointCloudCallback]: The number of points = " << cloud->n_points << "\n";
+  // std::cout << "[pointCloudCallback]: The number of points = " << cloud->n_points << "\n";
   lcm_sensor_msgs::PointCloud info = *cloud;
   std::unique_lock<std::mutex> lk(*pointcloud_buffer_mutex);
   
@@ -612,7 +612,7 @@ void lcmHandler::skiMapBuilderThread()
                                                                  voxels1,
                                                                  mapParameters.min_voxel_weight);
 
-      node_->publish("map_3d",&map_marker);                                            
+      node_->publish("map_3d",&map_marker);
     }
 
     
