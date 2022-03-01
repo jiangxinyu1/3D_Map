@@ -1,7 +1,7 @@
 /*
  * @Author: your name
  * @Date: 2022-01-24 18:28:58
- * @LastEditTime: 2022-03-01 19:06:42
+ * @LastEditTime: 2022-03-01 19:18:17
  * @LastEditors: Please set LastEditors
  * @Description: 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  * @FilePath: /test_lcm/src/lcmHandler.cpp
@@ -219,30 +219,27 @@ void getMeasurePointsFromPointCloud(const lcm_sensor_msgs::PointCloud &msg,
                                                                      const Eigen::Vector3f &MapRobotTransvec,
                                                                      std::vector<ColorPoint> &camera_points,
                                                                      std::vector<std::vector<int16_t>> &map_points_index,
-                                                                     const float & depthThrCamera,
-                                                                     const float & heightThrMap)
+                                                                     const float & maxDepthThrCamera,
+                                                                     const float & heightThrMap,
+                                                                     const float &minDepthThrCamera)
 {
   Eigen::Matrix3f  MapCameraRotationMatrix = MapRobotRotationMatrix*RobotCameraRotationMatrix;
   Eigen::Vector3f MapCameraTransvec = MapRobotRotationMatrix*RobotCameraTransvec + MapRobotTransvec;
-
   // 遍历点云数据
   for (int i = 0 ;  i < msg.points.size(); i++)
   {
-    // debugPrint("A");
     //  1 : 过滤掉在相机系下没一定深度值内的点及FOV外的点
-    if ( msg.points[i].z < 0.01 || msg.points[i].z > depthThrCamera)
+    if ( msg.points[i].z < minDepthThrCamera || msg.points[i].z > maxDepthThrCamera)
     {
       continue;
     }
     // 2 ：将单个点云转换到map系下
     Eigen::Vector3f camera_point(float(msg.points[i].x),float(msg.points[i].y),float(msg.points[i].z));
-
     // camera 和 robot 的坐标系方向不同
     {
-      auto x = camera_point[0];
-      auto y = camera_point[1];
-      auto z = camera_point[2];
-      
+      float x = camera_point[0];
+      float y = camera_point[1];
+      float z = camera_point[2];
       camera_point[0] = z;
       camera_point[1] = -x;
       camera_point[2] = - y;
@@ -494,7 +491,7 @@ void lcmHandler::skiMapBuilderThread()
       continue;
     }
     std::cout << "\n[skiMapBuilderThread]: >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>   Begin a new frame  ...  \n" 
-                     << "count= " << calCount << "\n";
+                    << "count= " << calCount << "\n";
 
     auto startTime_ = getTime();
     // 从pointCloudBiffer中取出点云
@@ -512,7 +509,6 @@ void lcmHandler::skiMapBuilderThread()
      * @brief （2）获取用于建图的点云数据measurement，滤点，用外参将点云转到map系下
      * 
      */
-    //  debugPrint("2");
     auto makeMapPointsStartTime = getTime();
 
     SensorMeasurement measurement;
@@ -529,8 +525,9 @@ void lcmHandler::skiMapBuilderThread()
     setRotationMat(MapRobotRotationMatrix,0.f,0.f,(float)curPose.pose.pose.position.z);
 
 
-    const float depthThrCamera = 0.5;
-    const float yThrMap = depthThrCamera*0.8;
+    const float maxDepthThrCamera = 0.5;
+    const float heightThrMap = maxDepthThrCamera*0.8;
+    const float minDepthThrCamera = 0.03;
     getMeasurePointsFromPointCloud(curCloud,
                                                                 RobotCameraRotationMatrix,
                                                                 RobotCameraTransvec,
@@ -538,8 +535,9 @@ void lcmHandler::skiMapBuilderThread()
                                                                 MapRobotTransvec,
                                                                 measurement.points,
                                                                 map_points_index,
-                                                                depthThrCamera,
-                                                                yThrMap);
+                                                                maxDepthThrCamera,
+                                                                heightThrMap,
+                                                                minDepthThrCamera);
 
     measurement.stamp = curCloud.header.stamp;
     // std::cout << "[skiMapBuilderThread]: measurement.points.size = " << measurement.points.size() << "\n";
@@ -580,7 +578,7 @@ void lcmHandler::skiMapBuilderThread()
     // map->fetchVoxels(voxels1); // voxels存储所有map中的体素
     map->fetchUpdateVoxelsOnly(voxels_new);
     auto mapBuilderEndTime_ = getTime();
-    std::cout << "[skiMapBuilderThread]: make voxels  time =  "<<  mapBuilderEndTime_ - mapBuilderStartTime_ <<" \n";
+    std::cout << "[skiMapBuilderThread]: make voxels time =  "<<  mapBuilderEndTime_ - mapBuilderStartTime_ <<" \n";
 
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -602,7 +600,7 @@ void lcmHandler::skiMapBuilderThread()
     }
     
     auto mapPublisherEndTime_ = getTime();
-    std::cout << "[skiMapBuilderThread]:  publisher map time =  "<<  mapPublisherEndTime_ - mapPublisherStartTime_ <<" \n";
+    std::cout << "[skiMapBuilderThread]: publisher map time =  "<<  mapPublisherEndTime_ - mapPublisherStartTime_ <<" \n";
     std::cout << "[skiMapBuilderThread]: >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>   Frame handle time =  "<<  endTime_ - startTime_ <<" \n";
     std::cout << "\n";
     calCount ++;

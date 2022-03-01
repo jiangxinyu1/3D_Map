@@ -323,7 +323,7 @@ public:
   {
       if (index < 0)
       {
-        return (D) -indexToCoordinatesTable_.at(-index);
+        return -indexToCoordinatesTable_.at(-index);
       }
       return indexToCoordinatesTable_.at(index);
   }
@@ -332,7 +332,7 @@ public:
   {
       if (k < 0)
       {
-        return (K)-coordinatesToIndexTable_.at(-k);
+        return -coordinatesToIndexTable_.at(-k);
       }
       return coordinatesToIndexTable_.at(k);
   }
@@ -1155,12 +1155,12 @@ public:
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   //  单位mm  ：vector的index代表mm，里面存储所对应的index 
-  std::vector<int16_t> preComputeCoordinatesToIndexTable_(D resolution ,const int Len)
+  virtual std::vector<int16_t> preComputeCoordinatesToIndexTable_(D resolution ,const int Len)
   {
     std::vector<int16_t> table(Len,0);
     for (int mm = 0 ;  mm < Len; mm++)
     {
-      auto m = mm / 1000.0;
+      float m = mm / 1000.f;
       int16_t index = floor(m/resolution);
       if ( index < Max_Index_Value)
       {
@@ -1173,7 +1173,7 @@ public:
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  std::vector<float> preComputeIndexToCoordinatesTable_(D resolution)
+  virtual std::vector<float> preComputeIndexToCoordinatesTable_(D resolution)
   {
     std::vector<float> table(Max_Index_Value,0.f);
     for (int index = 0 ;  index < Max_Index_Value; index++)
