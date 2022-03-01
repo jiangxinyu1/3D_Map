@@ -612,6 +612,8 @@ public:
               }
               voxel->value->update = true;
               voxelsUpdate.emplace_back(voxel);
+              cv::Point3i map_point_index(pointset[i].x,pointset[i].y,z_index);
+              addVoxelToUpdatedVoxelVector(map_point_index,voxel);
             }
 
           }
@@ -886,6 +888,7 @@ public:
         voxel->value->tableValue = hit_table_[voxel->value->tableValue];
         voxel->value->update = true;
         voxelsUpdate.emplace_back(voxel);
+        addVoxelToUpdatedVoxelVector(map_point_index, voxel);
         newP = true;
       }// if
       else
@@ -897,6 +900,7 @@ public:
           voxel->value->tableValue = hit_table_[voxel->value->tableValue];
           voxel->value->update = true;
           voxelsUpdate.emplace_back(voxel);
+          addVoxelToUpdatedVoxelVector(map_point_index,voxel);
           newP = true;
         }
       }//else
@@ -960,6 +964,15 @@ public:
 #pragma omp critical
       voxels.insert(voxels.end(), voxels_private.begin(), voxels_private.end());
     }
+  }
+
+  virtual void fetchUpdateVoxelsOnly(std::vector<Voxel3D> &voxelsOut) 
+  {
+    voxelsOut.clear();
+    int updateNum = updatedVoxelVec.size();
+    voxelsOut.resize(updateNum);
+    memcpy(voxelsOut.data(), updatedVoxelVec.data(),updateNum*sizeof(Voxel3D));
+    updatedVoxelVec.clear();
   }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1168,7 +1181,28 @@ public:
       table[index] = index * resolution + resolution * 0.5;
     }
     return table;
-  }  
+  }
+
+  virtual void addVoxelToUpdatedVoxelVector(const std::vector<int16_t> &map_point_index,const typename Z_NODE::NodeType *voxel)
+  {
+    D x,y,z;
+    int ix  = map_point_index[0];
+    int iy = map_point_index[1];
+    int iz = map_point_index[2];
+    indexToCoordinatesWithTable(ix,iy,iz,x,y,z);
+    updatedVoxelVec.emplace_back(Voxel3D(x,y,z,voxel->value));
+  }
+
+
+  virtual void addVoxelToUpdatedVoxelVector(const cv::Point3i &map_point_index, const typename Z_NODE::NodeType *voxel)
+  {
+    D x,y,z;
+    int ix  = map_point_index.x;
+    int iy = map_point_index.y;
+    int iz = map_point_index.z;
+    indexToCoordinatesWithTable(ix,iy,iz,x,y,z);
+    updatedVoxelVec.emplace_back(Voxel3D(x,y,z,voxel->value));
+  }
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -1215,6 +1249,7 @@ protected:
 
   // 用于记录当前帧被更新的node
   std::vector<const typename  Z_NODE::NodeType *> voxelsUpdate; 
+  std::vector<Voxel3D> updatedVoxelVec;
 
   // std::vector<const typename  Z_NODE::NodeType *> voxelsUpdate; 
 

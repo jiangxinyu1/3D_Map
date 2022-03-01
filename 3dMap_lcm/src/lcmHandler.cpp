@@ -1,7 +1,7 @@
 /*
  * @Author: your name
  * @Date: 2022-01-24 18:28:58
- * @LastEditTime: 2022-02-25 10:57:38
+ * @LastEditTime: 2022-03-01 18:08:37
  * @LastEditors: Please set LastEditors
  * @Description: 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  * @FilePath: /test_lcm/src/lcmHandler.cpp
@@ -135,7 +135,7 @@ void setRotationMat(Eigen::Matrix3f &RotationMat_ , const float &angleX_, const 
 void integrateMeasurement1(const std::vector<std::vector<int16_t>>& map_points_index, 
                                                    VoxelDataColor &voxelInit,
                                                    SKIMAP *&map,
-                                                   const std::vector<int16_t>& map_camera_index ) 
+                                                   const std::vector<int16_t>& map_camera_index)
 {
   map->enableConcurrencyAccess(true);
 
@@ -220,10 +220,12 @@ void getMeasurePointsFromPointCloud(const lcm_sensor_msgs::PointCloud &msg,
                                                                      std::vector<ColorPoint> &camera_points,
                                                                      std::vector<std::vector<int16_t>> &map_points_index,
                                                                      const float & depthThrCamera,
-                                                                     const float & yThrMap)
+                                                                     const float & heightThrMap)
 {
+  Eigen::Matrix3f  MapCameraRotationMatrix = MapRobotRotationMatrix*RobotCameraRotationMatrix;
+  Eigen::Vector3f MapCameraTransvec = MapRobotRotationMatrix*RobotCameraTransvec + MapRobotTransvec;
+
   // 遍历点云数据
-  // const float yThrMap = -0.35;
   for (int i = 0 ;  i < msg.points.size(); i++)
   {
     // debugPrint("A");
@@ -232,38 +234,33 @@ void getMeasurePointsFromPointCloud(const lcm_sensor_msgs::PointCloud &msg,
     {
       continue;
     }
-    // 2 ：将单个点云转换到robot系下
+    // 2 ：将单个点云转换到map系下
     Eigen::Vector3f camera_point(float(msg.points[i].x),float(msg.points[i].y),float(msg.points[i].z));
-    Eigen::Vector3f robot_point = RobotCameraRotationMatrix*camera_point + RobotCameraTransvec;
 
     // camera 和 robot 的坐标系方向不同
     {
-      auto x = robot_point[0];
-      auto y = robot_point[1];
-      auto z = robot_point[2];
+      auto x = camera_point[0];
+      auto y = camera_point[1];
+      auto z = camera_point[2];
       
-      robot_point[0] = z;
-      robot_point[1] = -x;
-      robot_point[2] = - y;
+      camera_point[0] = z;
+      camera_point[1] = -x;
+      camera_point[2] = - y;
     }
-
-    Eigen::Vector3f map_point = MapRobotRotationMatrix*robot_point + MapRobotTransvec;
-
+    Eigen::Vector3f map_point = MapCameraRotationMatrix*camera_point + MapCameraTransvec;
 
     // 3 : 过滤掉map下过高的点及地面以下的点
-    if (map_point[2] > yThrMap || map_point[2] < 0 )
+    if (map_point[2] > heightThrMap || map_point[2] < 0 )
     {
       continue;
     }
     // 4 ：turn to  map index
-#if 1
     int16_t ix, iy ,iz;
     if(map->integrateVoxelWithTable(int(map_point[0]*1000), 
                                                               int(map_point[1]*1000),
                                                               int(map_point[2]*1000),
                                                                ix, iy, iz))
     {
-      // debugPrint("D");
       std::vector<int16_t> data{ix , iy , iz};
       map_points_index.emplace_back(data);
       ColorPoint cp;
@@ -272,7 +269,6 @@ void getMeasurePointsFromPointCloud(const lcm_sensor_msgs::PointCloud &msg,
       cp.point.z = msg.points[i].z;
       camera_points.emplace_back(cp);
     }
-#endif    
   }// for
 }
 
@@ -483,6 +479,7 @@ void lcmHandler::skiMapBuilderThread()
   map = new SKIMAP(mapParameters.map_resolution, mapParameters.ground_level);
 
   std::cout << "[mapParameters]: " << mapParameters.map_resolution << "\n";
+  static int calCount = 0 ;
 
   while(thread_exit_flag == 0 )
   {
@@ -503,8 +500,8 @@ void lcmHandler::skiMapBuilderThread()
       usleep(20);
       continue;
     }
-    std::cout << "\n[skiMapBuilderThread]: >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>   Begin a new frame  ... \n";
-    debugPrint("1");
+    std::cout << "\n[skiMapBuilderThread]: >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>   Begin a new frame  ...  count = "<< calCount<< "\n";
+    // debugPrint("1");
     // 从pointCloudBiffer中取出点云
     lcm_sensor_msgs::PointCloud curCloud =  pointCloudBuffer.front();
     pointCloudBuffer.pop();
@@ -524,7 +521,7 @@ void lcmHandler::skiMapBuilderThread()
      * @brief （2）获取用于建图的点云数据measurement，滤点，用外参将点云转到map系下
      * 
      */
-     debugPrint("2");
+    //  debugPrint("2");
     auto makeMapPointsStartTime = getTime();
 
     SensorMeasurement measurement;
@@ -555,7 +552,7 @@ void lcmHandler::skiMapBuilderThread()
                                                                 yThrMap);
 
     measurement.stamp = curCloud.header.stamp;
-    std::cout << "[skiMapBuilderThread]: measurement.points.size = " << measurement.points.size() << "\n";
+    // std::cout << "[skiMapBuilderThread]: measurement.points.size = " << measurement.points.size() << "\n";
 
     // 将camera在map系下的原点位置存为整数
     int16_t ix, iy, iz;
@@ -571,7 +568,7 @@ void lcmHandler::skiMapBuilderThread()
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    debugPrint("3");
+    // debugPrint("3");
     /*
      * @brief （3）update map
      * 
@@ -592,36 +589,40 @@ void lcmHandler::skiMapBuilderThread()
      * 
      */
     auto mapBuilderStartTime_ = getTime();
-    std::vector<Voxel3D> voxels1; 
-    map->fetchVoxels(voxels1); // voxels存储所有map中的体素
+    std::vector<Voxel3D> voxels_new; 
+    // map->fetchVoxels(voxels1); // voxels存储所有map中的体素
+    map->fetchUpdateVoxelsOnly(voxels_new);
     auto mapBuilderEndTime_ = getTime();
     std::cout << "[skiMapBuilderThread]: make voxels  time =  "<<  mapBuilderEndTime_ - mapBuilderStartTime_ <<" \n";
 
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    auto mapPublisherStartTime_ = getTime();
-    if (voxels1.size() > 0 )
+    
+    std::string base_frame_name = "map";
+    static lcm_visualization_msgs::Marker map_marker = createVisualizationMarker(base_frame_name, 
+                                                                                                                                                measurement.stamp,
+                                                                                                                                                1,
+                                                                                                                                                VisualizationType::VOXEL_MAP);    
+    if (voxels_new.size() > 0 )
     {
-      std::string base_frame_name = "map";
-      lcm_visualization_msgs::Marker map_marker = createVisualizationMarker(base_frame_name, 
-                                                                                                                                       measurement.stamp,
-                                                                                                                                       1,
-                                                                                                                                       VisualizationType::VOXEL_MAP);
+
       fillVisualizationMarkerWithVoxels(map_marker, 
-                                                                 voxels1,
+                                                                 voxels_new,
                                                                  mapParameters.min_voxel_weight);
-
-      node_->publish("map_3d",&map_marker);
     }
-
-    
-    auto mapPublisherEndTime_ = getTime();
-    std::cout << "[skiMapBuilderThread]:  publisher map time =  "<<  mapPublisherEndTime_ - mapPublisherStartTime_ <<" \n";
-    
     auto endTime_ = getTime();
     std::cout << "[skiMapBuilderThread]: >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>   Frame handle time =  "<<  endTime_ - startTime_ <<" \n";
 
-  }
+    auto mapPublisherStartTime_ = getTime();
+    if (voxels_new.size() > 0 && calCount%5 == 0 )
+    {
+      node_->publish("map_3d",&map_marker);
+    }
+    auto mapPublisherEndTime_ = getTime();
+    std::cout << "[skiMapBuilderThread]:  publisher map time =  "<<  mapPublisherEndTime_ - mapPublisherStartTime_ <<" \n";
+    calCount++;
+  }//while
+  
   std::cout  << "[skiMapBuilderThread] skiMapBuilderThread  Exit";
 }
