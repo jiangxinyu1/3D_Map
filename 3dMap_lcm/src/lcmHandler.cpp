@@ -1,7 +1,7 @@
 /*
  * @Author: your name
  * @Date: 2022-01-24 18:28:58
- * @LastEditTime: 2022-03-01 18:08:37
+ * @LastEditTime: 2022-03-01 19:06:42
  * @LastEditors: Please set LastEditors
  * @Description: 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  * @FilePath: /test_lcm/src/lcmHandler.cpp
@@ -158,7 +158,7 @@ void integrateMeasurement1(const std::vector<std::vector<int16_t>>& map_points_i
     {
 
 #if 1  // for update updataMissVoxel 1    
-      voxel_index[(map_points_index[i][0] ) * Max_Index_Value + map_points_index[i][1]].emplace_back(map_points_index[i]);
+      voxel_index[(map_points_index[i][0] ) * 2*Max_Index_Value + map_points_index[i][1]].emplace_back(map_points_index[i]);
 #endif 
 
 #if 0 // for update updataMissVoxel 2
@@ -179,7 +179,7 @@ void integrateMeasurement1(const std::vector<std::vector<int16_t>>& map_points_i
   auto updateHitEndTime = getTime();
   std::cout << "[integrateMeasurement1] : update hit time = " << updateHitEndTime - updateHitStartTime << "\n";
 
-  printf("map_points_index.size = %i \n" , (int)map_points_index.size());
+  // printf("map_points_index.size = %i \n" , (int)map_points_index.size());
   printf("voxel_index.size = %i \n" , (int)voxel_index.size());
 
   auto updateFreeStartTime = getTime();
@@ -444,7 +444,7 @@ void lcmHandler::run()
 
   while (true)
   {
-    auto res = node_->handleTimeout(200);
+    auto res = node_->handleTimeout(0);
     if (res < 0 )
     {
       printf("[handleTimeout return] = %i \n",res);
@@ -479,39 +479,30 @@ void lcmHandler::skiMapBuilderThread()
   map = new SKIMAP(mapParameters.map_resolution, mapParameters.ground_level);
 
   std::cout << "[mapParameters]: " << mapParameters.map_resolution << "\n";
-  static int calCount = 0 ;
+  int calCount = 0 ;
 
   while(thread_exit_flag == 0 )
   {
-    
-    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     /*
      * @brief （1）从pointCloudBuffer中获取点云 
      * 
      */
-     
-    auto startTime_ = getTime();
-
     std::unique_lock<std::mutex> lk1(*pointcloud_buffer_mutex);
-
     if ( pointCloudBuffer.empty() || robotPoseBuffer.empty() )
     {
       usleep(20);
       continue;
     }
-    std::cout << "\n[skiMapBuilderThread]: >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>   Begin a new frame  ...  count = "<< calCount<< "\n";
-    // debugPrint("1");
+    std::cout << "\n[skiMapBuilderThread]: >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>   Begin a new frame  ...  \n" 
+                     << "count= " << calCount << "\n";
+
+    auto startTime_ = getTime();
     // 从pointCloudBiffer中取出点云
     lcm_sensor_msgs::PointCloud curCloud =  pointCloudBuffer.front();
     pointCloudBuffer.pop();
     lcm_nav_msgs::Odometry curPose =  robotPoseBuffer.front();
     robotPoseBuffer.pop();
-    
     lk1.unlock();
-    
-
-
     auto getPointCloudEndTime = getTime();
     std::cout << "[skiMapBuilderThread]: get PointCloud time = " << getPointCloudEndTime - startTime_ << "\n";
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -530,7 +521,6 @@ void lcmHandler::skiMapBuilderThread()
     // 相机外参
     Eigen::Matrix3f RobotCameraRotationMatrix = Eigen::Matrix3f::Identity(); // camera  在 map 下 pose 
     Eigen::Vector3f RobotCameraTransvec(0.0f,0.046f,0.0f);
-
     // 机器人Pose
     Eigen::Matrix3f MapRobotRotationMatrix = Eigen::Matrix3f::Identity();
     Eigen::Vector3f MapRobotTransvec (curPose.pose.pose.position.x, 
@@ -540,7 +530,7 @@ void lcmHandler::skiMapBuilderThread()
 
 
     const float depthThrCamera = 0.5;
-    const float yThrMap = depthThrCamera;
+    const float yThrMap = depthThrCamera*0.8;
     getMeasurePointsFromPointCloud(curCloud,
                                                                 RobotCameraRotationMatrix,
                                                                 RobotCameraTransvec,
@@ -564,11 +554,9 @@ void lcmHandler::skiMapBuilderThread()
 
     auto makeMapPointsEndTime = getTime();
     std::cout << "[skiMapBuilderThread]: make map points time =  "<<  makeMapPointsEndTime - makeMapPointsStartTime <<" \n";
-
-
+    
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // debugPrint("3");
     /*
      * @brief （3）update map
      * 
@@ -583,7 +571,6 @@ void lcmHandler::skiMapBuilderThread()
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
     /*
      * @brief （4）make voxels
      * 
@@ -598,31 +585,27 @@ void lcmHandler::skiMapBuilderThread()
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    auto endTime_ = getTime();
+    auto mapPublisherStartTime_ = getTime();
     
-    std::string base_frame_name = "map";
-    static lcm_visualization_msgs::Marker map_marker = createVisualizationMarker(base_frame_name, 
-                                                                                                                                                measurement.stamp,
-                                                                                                                                                1,
-                                                                                                                                                VisualizationType::VOXEL_MAP);    
     if (voxels_new.size() > 0 )
     {
-
+      std::string base_frame_name = "map";
+      lcm_visualization_msgs::Marker map_marker = createVisualizationMarker(base_frame_name, 
+                                                                                                                                      measurement.stamp,
+                                                                                                                                      1,
+                                                                                                                                      VisualizationType::VOXEL_MAP);    
       fillVisualizationMarkerWithVoxels(map_marker, 
                                                                  voxels_new,
                                                                  mapParameters.min_voxel_weight);
-    }
-    auto endTime_ = getTime();
-    std::cout << "[skiMapBuilderThread]: >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>   Frame handle time =  "<<  endTime_ - startTime_ <<" \n";
-
-    auto mapPublisherStartTime_ = getTime();
-    if (voxels_new.size() > 0 && calCount%5 == 0 )
-    {
       node_->publish("map_3d",&map_marker);
     }
+    
     auto mapPublisherEndTime_ = getTime();
     std::cout << "[skiMapBuilderThread]:  publisher map time =  "<<  mapPublisherEndTime_ - mapPublisherStartTime_ <<" \n";
-    calCount++;
+    std::cout << "[skiMapBuilderThread]: >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>   Frame handle time =  "<<  endTime_ - startTime_ <<" \n";
+    std::cout << "\n";
+    calCount ++;
   }//while
-  
   std::cout  << "[skiMapBuilderThread] skiMapBuilderThread  Exit";
 }

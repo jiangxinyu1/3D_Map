@@ -35,7 +35,7 @@ namespace skimap {
 
   #define Min_Index_Value -2000 //  map系栅格的最大值
   #define Max_Index_Value 2000 // map系栅格的最大值
-  #define z_node_min -5 // z 方向栅格的最小值
+  #define z_node_min 0 // z 方向栅格的最小值
   #define z_node_max 15 //z 方向栅格的最大值
 
   #define Map_Resolution 0.01
