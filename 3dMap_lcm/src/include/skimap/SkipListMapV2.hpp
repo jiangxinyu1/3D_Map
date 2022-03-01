@@ -530,8 +530,15 @@ public:
     // 以相机在map系下的中心作为起点
     cv::Point2i start(map_camera_index[0] , map_camera_index[1]);
     // 通过迭代器遍历 -> unordered map 的每一个value (x,y,z)
+    int kk =0 ; 
     for(auto it = voxel_index.begin() ; it != voxel_index.end() ; it++)
     {
+       kk++;
+      if ( kk%2 == 0 )
+      {
+        continue;
+      }
+
       // 取出当前key值对应 xy-index 
       cv::Point2i end(it->second[0][0] , it->second[0][1]);
       std::vector<cv::Point2i> pointset;
