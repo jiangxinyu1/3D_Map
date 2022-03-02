@@ -48,6 +48,17 @@ FILE(
   ${PROJECT_SOURCE_DIR}/src/main.cpp
 )
 
+FILE(
+  GLOB
+  SRC_FILES_TEST
+  ${PROJECT_SOURCE_DIR}/src/lcmHandler.cpp
+  ${PROJECT_SOURCE_DIR}/src/tool.cpp
+  ${PROJECT_SOURCE_DIR}/src/test.cpp
+)
 
 add_executable(skiMap_node ${SRC_FILES})
 target_link_libraries(skiMap_node ${LCM_LIBRARY} ${OpenCV_LIBS})
+
+
+add_executable(test_node ${SRC_FILES_TEST})
+target_link_libraries(test_node ${LCM_LIBRARY} ${OpenCV_LIBS})

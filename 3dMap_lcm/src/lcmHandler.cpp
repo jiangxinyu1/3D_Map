@@ -1,7 +1,7 @@
 /*
  * @Author: your name
  * @Date: 2022-01-24 18:28:58
- * @LastEditTime: 2022-03-02 17:44:24
+ * @LastEditTime: 2022-03-02 20:04:51
  * @LastEditors: Please set LastEditors
  * @Description: 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  * @FilePath: /test_lcm/src/lcmHandler.cpp
@@ -312,8 +312,8 @@ void fillVisualizationMarkerWithVoxels( lcm_visualization_msgs::Marker &voxels_m
 {
   for (int i = 0; i < voxels.size(); i++)
   {
-    // if(ValueToProbability(voxels[i].data->tableValue) < 0.7)
-    //   continue;
+    if(ValueToProbability(voxels[i].data->tableValue) < 0.7)
+      continue;
 
     lcm_geometry_msgs::Point point;
     point.x = voxels[i].x;
@@ -409,7 +409,8 @@ void lcmHandler::pointCloudCallback(const lcm::ReceiveBuffer *rbuf, const std::s
 void lcmHandler::getRobotPoseCallback(const lcm::ReceiveBuffer *rbuf, const std::string &chan, const lcm_nav_msgs::Odometry* msg)
 {
   // std::cout << "[getRobotPoseCallback]: The msg  child_frame_id = " << msg->child_frame_id << "\n";
-  static lcm_nav_msgs::Odometry  robot_pose = *msg;
+  lcm_nav_msgs::Odometry  robot_pose = *msg;
+  // std::cout << "[pose call back  ] cur pose = " << msg->pose.pose.position.x << "," << msg->pose.pose.position.y <<","<< msg->pose.pose.position.z << "\n";
   std::unique_lock<std::mutex> lock_(*pointcloud_buffer_mutex);
   if (robotPoseBuffer.size() > robotPoseBufferMaxSize )
   {
@@ -477,8 +478,9 @@ void lcmHandler::skiMapBuilderThread()
       continue;
     }
     std::cout << "\n[skiMapBuilderThread]: >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>   Begin a new frame  ...  \n" 
-                    << "count= " << calCount << "\n";
+                    << "Frame Count= " << calCount << "\n";
 
+    
     auto startTime_ = getTime();
     // 从pointCloudBiffer中取出点云
     lcm_sensor_msgs::PointCloud curCloud =  pointCloudBuffer.front();
@@ -488,6 +490,8 @@ void lcmHandler::skiMapBuilderThread()
     lk1.unlock();
     auto getPointCloudEndTime = getTime();
     std::cout << "[skiMapBuilderThread]: get PointCloud time = " << getPointCloudEndTime - startTime_ << "\n";
+
+    std::cout << "[pose] cur pose = " << curPose.pose.pose.position.x << "," << curPose.pose.pose.position.y <<","<< curPose.pose.pose.position.z << "\n";
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -543,9 +547,9 @@ void lcmHandler::skiMapBuilderThread()
 
     std::cout << "[skiMapBuilderThread]: make map points time =  "<<  makeMapPointsEndTime - makeMapPointsStartTime <<" , ";
     std::cout << "[SensorMeasurement] :" << measurement.points.size() << "\n";
-    std::cout << "[make point time ]:  position 1 =  "<<  makeMapPointsPosition1Time - makeMapPointsStartTime <<" \n";
-    std::cout << "[make point time ]:  position 2 =  "<<  makeMapPointsPosition2Time - makeMapPointsPosition1Time <<" \n";
-    std::cout << "[make point time ]:  position 3 =  "<<  makeMapPointsEndTime - makeMapPointsPosition2Time <<" \n";
+    // std::cout << "[make point time ]:  position 1 =  "<<  makeMapPointsPosition1Time - makeMapPointsStartTime <<" \n";
+    // std::cout << "[make point time ]:  position 2 =  "<<  makeMapPointsPosition2Time - makeMapPointsPosition1Time <<" \n";
+    // std::cout << "[make point time ]:  position 3 =  "<<  makeMapPointsEndTime - makeMapPointsPosition2Time <<" \n";
     
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -569,7 +573,7 @@ void lcmHandler::skiMapBuilderThread()
      */
     auto mapBuilderStartTime_ = getTime();
     std::vector<Voxel3D> voxels_new; 
-    // map->fetchVoxels(voxels1); // voxels存储所有map中的体素
+    // map->fetchVoxels(voxels_new); // voxels存储所有map中的体素
     map->fetchUpdateVoxelsOnly(voxels_new);
     auto mapBuilderEndTime_ = getTime();
     std::cout << "[skiMapBuilderThread]: make voxels time =  "<<  mapBuilderEndTime_ - mapBuilderStartTime_ <<" \n";
