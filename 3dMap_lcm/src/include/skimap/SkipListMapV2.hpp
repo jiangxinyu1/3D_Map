@@ -311,7 +311,6 @@ public:
 
   virtual bool integrateVoxel(D x, D y, D z, K& ix , K& iy , K& iz) 
   {
-    // std::cout << "[TEST] : TABLE = " << coordinatesToIndexTable_[222] << "\n";
     if (coordinatesToIndex(x, y, z, ix, iy, iz)) 
     {
       return true;
@@ -319,7 +318,7 @@ public:
     return false;
   }
 
-  D getValFromIndexToCoordinatesTable(int index) 
+  inline virtual D getValFromIndexToCoordinatesTable(int index) 
   {
       if (index < 0)
       {
@@ -328,17 +327,17 @@ public:
       return indexToCoordinatesTable_.at(index);
   }
 
-  K getValFromCoordinatesToIndexTable(int k) 
+  inline virtual K getValFromCoordinatesToIndexTable(int k) 
   {
       if (k < 0)
       {
-        return -coordinatesToIndexTable_.at(-k);
+        return - (coordinatesToIndexTable_[-k]);
       }
-      return coordinatesToIndexTable_.at(k);
+      return coordinatesToIndexTable_[k];
   }
 
 
-  bool integrateVoxelWithTable(int x, int  y, int z, K& ix , K& iy , K& iz) 
+  inline virtual bool integrateVoxelWithTable(int x, int  y, int z, K& ix , K& iy , K& iz) 
   {
     ix = getValFromCoordinatesToIndexTable(x);
     iy = getValFromCoordinatesToIndexTable(y);
@@ -987,8 +986,7 @@ public:
 
  virtual void clearVoxelsUpdateFlag()
  {
-  //  printf("voxelsUpdate.size = %d \n" , voxelsUpdate.size());
-  for(auto voxel : voxelsUpdate)
+  for(auto &voxel : voxelsUpdate)
   {
     voxel->value->update = false;
   }

@@ -1,7 +1,7 @@
 /*
  * @Author: your name
  * @Date: 2022-02-11 17:20:21
- * @LastEditTime: 2022-02-11 18:52:36
+ * @LastEditTime: 2022-03-01 20:50:20
  * @LastEditors: Please set LastEditors
  * @Description: 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  * @FilePath: /3dMap_lcm/src/include/tool/tool.cpp
@@ -41,12 +41,5 @@ void debugPrint(const std::string &position)
 #endif
 }
 
-
-int64_t getTime()
-{
-  struct timespec t;
-  clock_gettime(CLOCK_MONOTONIC, &t);
-  return t.tv_sec*1000.0+ std::round(t.tv_nsec/1000000.0);
-}
 
 

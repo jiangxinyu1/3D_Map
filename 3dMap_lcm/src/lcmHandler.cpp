@@ -1,7 +1,7 @@
 /*
  * @Author: your name
  * @Date: 2022-01-24 18:28:58
- * @LastEditTime: 2022-03-01 19:18:17
+ * @LastEditTime: 2022-03-02 15:38:15
  * @LastEditors: Please set LastEditors
  * @Description: 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  * @FilePath: /test_lcm/src/lcmHandler.cpp
@@ -223,6 +223,8 @@ void getMeasurePointsFromPointCloud(const lcm_sensor_msgs::PointCloud &msg,
                                                                      const float & heightThrMap,
                                                                      const float &minDepthThrCamera)
 {
+  map_points_index.reserve(msg.points.size());
+  camera_points.reserve(msg.points.size());
   Eigen::Matrix3f  MapCameraRotationMatrix = MapRobotRotationMatrix*RobotCameraRotationMatrix;
   Eigen::Vector3f MapCameraTransvec = MapRobotRotationMatrix*RobotCameraTransvec + MapRobotTransvec;
   // 遍历点云数据
@@ -322,8 +324,8 @@ void fillVisualizationMarkerWithVoxels( lcm_visualization_msgs::Marker &voxels_m
 
   for (int i = 0; i < voxels.size(); i++)
   {
-    if(ValueToProbability(voxels[i].data->tableValue) < 0.7)
-      continue;
+    // if(ValueToProbability(voxels[i].data->tableValue) < 0.7)
+    //   continue;
     /**
      * Create 3D Point from 3D Voxel
      */
@@ -335,14 +337,15 @@ void fillVisualizationMarkerWithVoxels( lcm_visualization_msgs::Marker &voxels_m
      * Assign Cube Color from Voxel Color
      */
     voxels_marker.points.emplace_back(point);
+  
+    lcm_std_msgs::ColorRGBA color;
+    color.r = 0;
+    color.g = 255;
+    color.b = 0;
+    color.a = voxels[i].data->tableValue;
+    voxels_marker.colors.emplace_back(color);
   }
-  lcm_std_msgs::ColorRGBA color;
-  color.r = 0;
-  color.g = 255;
-  color.b = 0;
-  color.a = 1;
-  std::vector<lcm_std_msgs::ColorRGBA> colors_(voxels_marker.points.size(),color);
-  voxels_marker.colors = colors_;
+  
 
   voxels_marker.size = voxels_marker.points.size();
   voxels_marker.pose.position.x = 0;
@@ -540,18 +543,19 @@ void lcmHandler::skiMapBuilderThread()
                                                                 minDepthThrCamera);
 
     measurement.stamp = curCloud.header.stamp;
-    // std::cout << "[skiMapBuilderThread]: measurement.points.size = " << measurement.points.size() << "\n";
 
     // 将camera在map系下的原点位置存为整数
     int16_t ix, iy, iz;
-    map->integrateVoxelWithTable(int(RobotCameraTransvec[0]*1000), 
-                                                           int(RobotCameraTransvec[1]*1000), 
-                                                           int(RobotCameraTransvec[2]*1000), 
+    map->integrateVoxelWithTable(int(MapRobotTransvec[0]*1000), 
+                                                           int(MapRobotTransvec[1]*1000), 
+                                                           0, 
                                                            ix, iy, iz);
     std::vector<int16_t> map_camera_index{ix , iy , iz};
 
     auto makeMapPointsEndTime = getTime();
-    std::cout << "[skiMapBuilderThread]: make map points time =  "<<  makeMapPointsEndTime - makeMapPointsStartTime <<" \n";
+    std::cout << "[skiMapBuilderThread]: make map points time =  "<<  makeMapPointsEndTime - makeMapPointsStartTime <<" , ";
+    std::cout << "[SensorMeasurement] :" << measurement.points.size() << "\n";
+
     
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
