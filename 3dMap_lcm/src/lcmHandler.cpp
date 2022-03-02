@@ -1,7 +1,7 @@
 /*
  * @Author: your name
  * @Date: 2022-01-24 18:28:58
- * @LastEditTime: 2022-03-02 15:38:15
+ * @LastEditTime: 2022-03-02 17:44:24
  * @LastEditors: Please set LastEditors
  * @Description: 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  * @FilePath: /test_lcm/src/lcmHandler.cpp
@@ -225,34 +225,34 @@ void getMeasurePointsFromPointCloud(const lcm_sensor_msgs::PointCloud &msg,
 {
   map_points_index.reserve(msg.points.size());
   camera_points.reserve(msg.points.size());
-  Eigen::Matrix3f  MapCameraRotationMatrix = MapRobotRotationMatrix*RobotCameraRotationMatrix;
-  Eigen::Vector3f MapCameraTransvec = MapRobotRotationMatrix*RobotCameraTransvec + MapRobotTransvec;
-  // 遍历点云数据
+  // 多多已转换到robot系下，这里无序转换
+  Eigen::Matrix3f  MapCameraRotationMatrix = MapRobotRotationMatrix;
+  Eigen::Vector3f MapCameraTransvec = MapRobotTransvec;
+  // Eigen::Matrix3f  MapCameraRotationMatrix = MapRobotRotationMatrix*RobotCameraRotationMatrix;
+  // Eigen::Vector3f MapCameraTransvec = MapRobotRotationMatrix*RobotCameraTransvec + MapRobotTransvec;  
+
   for (int i = 0 ;  i < msg.points.size(); i++)
   {
-    //  1 : 过滤掉在相机系下没一定深度值内的点及FOV外的点
+    //  1 : 过滤掉在相机系下没一定深度值内的点
     if ( msg.points[i].z < minDepthThrCamera || msg.points[i].z > maxDepthThrCamera)
     {
       continue;
     }
     // 2 ：将单个点云转换到map系下
-    Eigen::Vector3f camera_point(float(msg.points[i].x),float(msg.points[i].y),float(msg.points[i].z));
+    // Eigen::Vector3f camera_point(float(msg.points[i].x),float(msg.points[i].y),float(msg.points[i].z));
     // camera 和 robot 的坐标系方向不同
-    {
-      float x = camera_point[0];
-      float y = camera_point[1];
-      float z = camera_point[2];
-      camera_point[0] = z;
-      camera_point[1] = -x;
-      camera_point[2] = - y;
-    }
-    Eigen::Vector3f map_point = MapCameraRotationMatrix*camera_point + MapCameraTransvec;
+    static Eigen::Vector3f camera_point;
+    camera_point << float(msg.points[i].z),-float(msg.points[i].x),-float(msg.points[i].y);
+
+    static Eigen::Vector3f map_point;
+    map_point = MapCameraRotationMatrix*camera_point + MapCameraTransvec;
 
     // 3 : 过滤掉map下过高的点及地面以下的点
     if (map_point[2] > heightThrMap || map_point[2] < 0 )
     {
       continue;
     }
+
     // 4 ：turn to  map index
     int16_t ix, iy ,iz;
     if(map->integrateVoxelWithTable(int(map_point[0]*1000), 
@@ -269,6 +269,7 @@ void getMeasurePointsFromPointCloud(const lcm_sensor_msgs::PointCloud &msg,
       camera_points.emplace_back(cp);
     }
   }// for
+
 }
 
 lcm_visualization_msgs::Marker createVisualizationMarker(std::string frame_id,
@@ -309,33 +310,16 @@ void fillVisualizationMarkerWithVoxels( lcm_visualization_msgs::Marker &voxels_m
                                                                      std::vector<Voxel3D> &voxels,
                                                                      int min_weight_th) 
 {
-  // cv::Mat colorSpace(1, voxels.size(), CV_32FC3);
-  // cv::Mat colorSpace(1, voxels.size(), 3);
-  // if (mapParameters.height_color) 
-  // {
-  //   for (int i = 0; i < voxels.size(); i++) 
-  //   {
-  //     colorSpace.at<cv::Vec3f>(i)[0] = 180 - (voxels[i].z / 2) * 180;
-  //     colorSpace.at<cv::Vec3f>(i)[1] = 1;
-  //     colorSpace.at<cv::Vec3f>(i)[2] = 1;
-  //   }
-  //   // cv::cvtColor(colorSpace, colorSpace, CV_HSV2BGR);
-  // }
-
   for (int i = 0; i < voxels.size(); i++)
   {
     // if(ValueToProbability(voxels[i].data->tableValue) < 0.7)
     //   continue;
-    /**
-     * Create 3D Point from 3D Voxel
-     */
+
     lcm_geometry_msgs::Point point;
     point.x = voxels[i].x;
     point.y = voxels[i].y;
     point.z = voxels[i].z;
-    /**
-     * Assign Cube Color from Voxel Color
-     */
+
     voxels_marker.points.emplace_back(point);
   
     lcm_std_msgs::ColorRGBA color;
@@ -345,7 +329,6 @@ void fillVisualizationMarkerWithVoxels( lcm_visualization_msgs::Marker &voxels_m
     color.a = voxels[i].data->tableValue;
     voxels_marker.colors.emplace_back(color);
   }
-  
 
   voxels_marker.size = voxels_marker.points.size();
   voxels_marker.pose.position.x = 0;
@@ -527,6 +510,7 @@ void lcmHandler::skiMapBuilderThread()
                                                                   0.0);
     setRotationMat(MapRobotRotationMatrix,0.f,0.f,(float)curPose.pose.pose.position.z);
 
+    auto makeMapPointsPosition1Time = getTime();
 
     const float maxDepthThrCamera = 0.5;
     const float heightThrMap = maxDepthThrCamera*0.8;
@@ -544,6 +528,8 @@ void lcmHandler::skiMapBuilderThread()
 
     measurement.stamp = curCloud.header.stamp;
 
+    auto makeMapPointsPosition2Time = getTime();
+
     // 将camera在map系下的原点位置存为整数
     int16_t ix, iy, iz;
     map->integrateVoxelWithTable(int(MapRobotTransvec[0]*1000), 
@@ -553,9 +539,13 @@ void lcmHandler::skiMapBuilderThread()
     std::vector<int16_t> map_camera_index{ix , iy , iz};
 
     auto makeMapPointsEndTime = getTime();
+
+
     std::cout << "[skiMapBuilderThread]: make map points time =  "<<  makeMapPointsEndTime - makeMapPointsStartTime <<" , ";
     std::cout << "[SensorMeasurement] :" << measurement.points.size() << "\n";
-
+    std::cout << "[make point time ]:  position 1 =  "<<  makeMapPointsPosition1Time - makeMapPointsStartTime <<" \n";
+    std::cout << "[make point time ]:  position 2 =  "<<  makeMapPointsPosition2Time - makeMapPointsPosition1Time <<" \n";
+    std::cout << "[make point time ]:  position 3 =  "<<  makeMapPointsEndTime - makeMapPointsPosition2Time <<" \n";
     
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

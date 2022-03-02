@@ -3,13 +3,21 @@ project(skiMap_node)
 
 
 set( CMAKE_BUILD_TYPE "Release")
+set( CMAKE)
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Ofast -mavx -mfma ")
+
+#  -Ofast -mavx -mfma
 
 set(Thirdparty_DIR ~/cleanRobot/thirdparty)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${Thirdparty_DIR}/CMakeModules")
 set( EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 
+
+# -Ofast -mavx -mfma
+
 find_package(lcm REQUIRED)
 find_package(OpenCV REQUIRED)
+find_package(Eigen3 REQUIRED)
 
 include_directories(
     ${INCLUDE_DIRS}
@@ -28,7 +36,7 @@ include_directories(
     ${Thirdparty_DIR}/include/opencv2
     ${LCM_INCLUDE_DIR}
     ${OpenCV_INCLUDE_DIRS}
-    "/usr/include/eigen3"
+    ${EIGEN3_INCLUDE_DIR}
 )
 
 

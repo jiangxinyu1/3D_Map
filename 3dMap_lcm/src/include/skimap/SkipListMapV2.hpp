@@ -129,6 +129,8 @@ public:
         indexToCoordinatesTable_(preComputeIndexToCoordinatesTable_(resolution))
   {
     initialize(_min_index_value, _max_index_value);
+    std::cout << "[SkipListMapV2]  initialize and make table done ... \n";
+#if 0
     std::cout << "[coordinatesToIndexTable_] = \n";
     for (int i = 0; i<Max_Index_Value*resolution*1000; i++)
     {
@@ -139,6 +141,8 @@ public:
     {
       std::cout << "," << indexToCoordinatesTable_[i] ;
     }
+#endif     
+
   }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1255,9 +1259,6 @@ protected:
   // 用于记录当前帧被更新的node
   std::vector<const typename  Z_NODE::NodeType *> voxelsUpdate; 
   std::vector<Voxel3D> updatedVoxelVec;
-
-  // std::vector<const typename  Z_NODE::NodeType *> voxelsUpdate; 
-
   const std::vector<u_int16_t> hit_table_;
   const std::vector<u_int16_t> miss_table_;
   const std::vector<D> indexToCoordinatesTable_;
