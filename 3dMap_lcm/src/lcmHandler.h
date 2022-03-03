@@ -1,7 +1,7 @@
 /*
  * @Author: your name
  * @Date: 2022-01-24 18:29:14
- * @LastEditTime: 2022-02-24 14:53:59
+ * @LastEditTime: 2022-03-02 20:59:10
  * @LastEditors: Please set LastEditors
  * @Description: 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  * @FilePath: /test_lcm/src/lcmHandler.h
@@ -60,12 +60,12 @@ public:
   std::queue<lcm_sensor_msgs::PointCloud> pointCloudBuffer;
   std::queue<lcm_nav_msgs::Odometry> robotPoseBuffer;
 
-  const int pointCloudBufferMaxSize = 5;
+  const int pointCloudBufferMaxSize = 3;
   std::mutex *pointcloud_buffer_mutex;
   bool pointcloud_buffer_have=false;
 
 
-  const int robotPoseBufferMaxSize = 5;
+  const int robotPoseBufferMaxSize = 3;
   std::mutex *robot_pose_buffer_mutex;
   bool robot_pose_buffer_have=false;
   
