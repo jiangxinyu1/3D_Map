@@ -142,6 +142,9 @@ include_directories(
 add_executable(skimap_live src/nodes/skimap_live.cpp)
 target_link_libraries(skimap_live ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
 
+add_executable(make_full_map src/nodes/test.cpp)
+target_link_libraries(make_full_map ${catkin_LIBRARIES})
+
 # add_executable(skimap_map_service src/nodes/skimap_map_service.cpp)
 # target_link_libraries(skimap_map_service ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
 # add_dependencies(skimap_map_service skimap_ros_generate_messages_cpp)
