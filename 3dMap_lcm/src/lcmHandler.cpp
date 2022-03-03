@@ -194,7 +194,7 @@ void integrateMeasurement1(const std::vector<std::vector<int16_t>>& map_points_i
 
   // timings.startTimer("clear");
 
-  map->clearVoxelsUpdateFlag();
+  // map->clearVoxelsUpdateFlag();
 
   // timings.printTime("clear");
   // integrationParameters.integration_counter++;
@@ -271,6 +271,69 @@ void getMeasurePointsFromPointCloud(const lcm_sensor_msgs::PointCloud &msg,
   }// for
 
 }
+
+void updateUnvalidMissVoxel(const lcm_geometry_msgs::Point32MultiArray&midImagePoints,
+                                                                     const std::vector<std::pair<float, float>>&obstHeightPoints,
+                                                                     const std::vector<int16_t> &map_camera_index,
+                                                                     const Eigen::Matrix3f &RobotCameraRotationMatrix,
+                                                                     const Eigen::Vector3f &RobotCameraTransvec,
+                                                                     const Eigen::Matrix3f &MapRobotRotationMatrix,
+                                                                     const Eigen::Vector3f &MapRobotTransvec)
+{
+  std::set<int> voxel_index;
+  for (int i = 0 ;  i < midImagePoints.points.size(); i++) // 按图像中的每一列进行遍历
+  {
+    if(midImagePoints.points[i].z < 0.01) continue;
+    // 2 ：将单个点云转换到robot系下
+    Eigen::Vector3f camera_point(float(midImagePoints.points[i].x),float(midImagePoints.points[i].y),float(midImagePoints.points[i].z));
+    Eigen::Vector3f robot_point = RobotCameraRotationMatrix*camera_point + RobotCameraTransvec;
+    {
+      auto x = robot_point[0];
+      auto y = robot_point[1];
+      auto z = robot_point[2];
+      
+      robot_point[0] = z;
+      robot_point[1] = -x;
+      robot_point[2] = - y;
+    }
+
+    Eigen::Vector3f map_point = MapRobotRotationMatrix*robot_point + MapRobotTransvec;
+
+    int16_t ix, iy ,iz;
+    map->integrateVoxelWithTable(int(map_point[0]*1000), 
+                                                              int(map_point[1]*1000),
+                                                              int(map_point[2]*1000),
+                                                               ix, iy, iz);
+
+    int index = ix* Max_Index_Value + iy;
+    if(voxel_index.count(index) != 0) continue;
+    voxel_index.insert(index);
+
+    int h1 = map->getValFromCoordinatesToIndexTable((-0.1*1000));
+    int h2 = map->getValFromCoordinatesToIndexTable((0.6*1000));
+
+    std::pair<int16_t,int16_t> xy_index(ix , iy);
+    std::vector<std::pair<int16_t, int16_t>> z_index_pairs;
+    if(obstHeightPoints[i].first != -1){
+      int h3 = map->getValFromCoordinatesToIndexTable(int((-obstHeightPoints[i].first)*1000));
+      int h4 = map->getValFromCoordinatesToIndexTable(int((-obstHeightPoints[i].second)*1000));
+      if(h3 < h4){
+        z_index_pairs.push_back(std::pair<int16_t,int16_t>(h1 , h3));
+        z_index_pairs.push_back(std::pair<int16_t,int16_t>(h4 , h2));
+      }
+      else{
+        z_index_pairs.push_back(std::pair<int16_t,int16_t>(h1 , h4));
+        z_index_pairs.push_back(std::pair<int16_t,int16_t>(h3 , h2));
+      }
+    }
+    else{
+      z_index_pairs.push_back(std::pair<int16_t,int16_t>(h1 , h2));
+    }
+
+    map->updataMissVoxel3(map_camera_index, xy_index,  z_index_pairs);
+  }
+}
+
 
 lcm_visualization_msgs::Marker createVisualizationMarker(std::string frame_id,
                                                                                                         lcm_ros::Time time, 
@@ -358,6 +421,9 @@ lcmHandler::lcmHandler()
   // node_->subscribe("slam_cmd", &lcmHandler::cmdCallback, this);
   node_->subscribe("pointcloud_obst",&lcmHandler::pointCloudCallback,this);
   node_->subscribe("good_odom",&lcmHandler::getRobotPoseCallback,this);
+  node_->subscribe("midImage_points",&lcmHandler::obstHeightPointsCallback,this);
+
+  readDataFromTxt();
 }
 
 lcmHandler::~lcmHandler()
@@ -407,7 +473,15 @@ void lcmHandler::pointCloudCallback(const lcm::ReceiveBuffer *rbuf, const std::s
 void lcmHandler::getRobotPoseCallback(const lcm::ReceiveBuffer *rbuf, const std::string &chan, const lcm_nav_msgs::Odometry* msg)
 {
   // std::cout << "[getRobotPoseCallback]: The msg  child_frame_id = " << msg->child_frame_id << "\n";
+  
   lcm_nav_msgs::Odometry  robot_pose = *msg;
+  // robot_pose.pose.pose.position.x = 0;
+  // robot_pose.pose.pose.position.y = 0;
+  // robot_pose.pose.pose.position.z = 0;
+  // robot_pose.pose.pose.orientation.x = 0;
+  // robot_pose.pose.pose.orientation.y = 0;
+  // robot_pose.pose.pose.orientation.z = 0;
+  // robot_pose.pose.pose.orientation.w = 1;
   std::unique_lock<std::mutex> lock_(*pointcloud_buffer_mutex);
   if (robotPoseBuffer.size() > robotPoseBufferMaxSize )
   {
@@ -417,6 +491,18 @@ void lcmHandler::getRobotPoseCallback(const lcm::ReceiveBuffer *rbuf, const std:
   
 }
 
+
+void lcmHandler::midImagePointsCallback(const lcm::ReceiveBuffer *rbuf, const std::string &chan,  const lcm_geometry_msgs::Point32MultiArray* msg){
+  midImagePointsBuffer = *msg;
+}
+
+void lcmHandler::obstHeightPointsCallback(const lcm::ReceiveBuffer *rbuf, const std::string &chan,  const lcm_geometry_msgs::Point32MultiArray* msg){
+  obstHeightPoints.clear();
+  for(int i = 0 ; i < msg->points.size(); i++){
+    obstHeightPoints.push_back(std::pair<float, float>(msg->points[i].x , msg->points[i].y));
+  }
+  printf("obstHeightPoints.size ===================== %d\n",obstHeightPoints.size());
+}
 
 void lcmHandler::run()
 {
@@ -507,7 +593,8 @@ void lcmHandler::skiMapBuilderThread()
 
     // 相机外参
     Eigen::Matrix3f RobotCameraRotationMatrix = Eigen::Matrix3f::Identity(); // camera  在 map 下 pose 
-    Eigen::Vector3f RobotCameraTransvec(0.0f,0.046f,0.0f);
+    Eigen::Vector3f RobotCameraTransvec(0.0f,0.0f,0.0f);
+
     // 机器人Pose
     Eigen::Matrix3f MapRobotRotationMatrix = Eigen::Matrix3f::Identity();
     Eigen::Vector3f MapRobotTransvec (curPose.pose.pose.position.x, 
@@ -567,6 +654,19 @@ void lcmHandler::skiMapBuilderThread()
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     /*
+    * @brief 更新所有miss点
+    */
+   updateUnvalidMissVoxel(midImagePointsBuffer,
+                                                      obstHeightPoints,
+                                                      map_camera_index,
+                                                      RobotCameraRotationMatrix,
+                                                      RobotCameraTransvec,
+                                                      MapRobotRotationMatrix,
+                                                      MapRobotTransvec);
+    std::cout << "[skiMapBuilderThread]: updateUnvalidMissVoxel  time =  "<<  getTime() - mapIntegrationEndTime_ <<" \n";
+
+    map->clearVoxelsUpdateFlag();
+    /*
      * @brief （4）make voxels
      * 
      */
@@ -604,3 +704,17 @@ void lcmHandler::skiMapBuilderThread()
   }//while
   std::cout  << "[skiMapBuilderThread] skiMapBuilderThread  Exit";
 }
+
+  void lcmHandler::readDataFromTxt(){
+    std::ifstream infile;
+    infile.open("/data/points.txt");
+    if(!infile) std::cout<<"error"<<std::endl;
+    float x, y, z;
+    while (infile >> x >> y >> z){
+      lcm_geometry_msgs::Point32 point;
+      point.x = x; point.y = y; point.z = z;
+      midImagePointsBuffer.points.push_back(point);
+    }
+    midImagePointsBuffer.size = midImagePointsBuffer.points.size();
+    printf("midImagePointsBuffer.size = %d ,%d \n", midImagePointsBuffer.size, midImagePointsBuffer.points.size());
+  }

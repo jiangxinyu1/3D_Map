@@ -632,6 +632,64 @@ public:
     }
   }
 
+  virtual void updataMissVoxel3(const std::vector<int16_t>& map_camera_index, std::pair<int16_t,int16_t> xy_index, 
+                                                       const std::vector<std::pair<int16_t, int16_t>>& z_index_pairs)
+  {
+    
+    // 以相机在map系下的中心作为起点
+    cv::Point2i start(map_camera_index[0] , map_camera_index[1]);
+
+    cv::Point2i end(xy_index.first , xy_index.second);
+    std::vector<cv::Point2i> pointset;
+    bresenhamLine(start, end , pointset);
+
+    float dis1 = pointDistance(start , end);
+    for(int i = 1 ; i < pointset.size() - 1 ; i++){
+      float dis2 = pointDistance(start , pointset[i]);
+      float rate = dis2 / dis1;
+
+      const typename X_NODE::NodeType *ylist = _root_list->find(pointset[i].x);
+      if (ylist == NULL)
+      {
+        continue;
+      }
+      const typename Y_NODE::NodeType *zlist = ylist->value->find(pointset[i].y);
+      if (zlist == NULL)
+      {
+        continue;
+      }
+
+      for(auto c : z_index_pairs)
+      {
+        float z1 = rate * (c.first - map_camera_index[2]) + map_camera_index[2];
+        K z_index1 = K(z1 + 0.5);
+
+        float z2 = rate * (c.second - map_camera_index[2]) + map_camera_index[2];
+        K z_index2 = K(z2 + 0.5);
+        
+        for(int z_index = z_index1 ; z_index < z_index2+1 ; z_index++)
+        {
+          const typename Z_NODE::NodeType *voxel = zlist->value->find(z_index);
+          // 如果之前没有这个voxel，跳过
+          if (voxel == NULL) 
+          {
+            continue;
+          }
+          // 如果当前的voxel当前的
+          else 
+          {
+            if((voxel->value->w) > 0 && voxel->value->update == false)
+            {
+              voxel->value->tableValue = miss_table_[voxel->value->tableValue];
+            }
+            voxel->value->update = true;
+            voxelsUpdate.emplace_back(voxel);
+          }
+        }
+      }
+    }
+  }
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

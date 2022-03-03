@@ -32,6 +32,7 @@
 #include "lcm_msgs/lcm_geometry_msgs/Point32.hpp"
 #include "lcm_msgs/lcm_visualization_msgs/Marker.hpp"
 #include "lcm_msgs/lcm_visualization_msgs/MarkerArray.hpp"
+#include "lcm_msgs/lcm_geometry_msgs/Point32MultiArray.hpp"
 
 #include "lcm_ros/time.h"
 
@@ -41,6 +42,7 @@
 #include <Eigen/Geometry>
 
 #include "tool.h"
+#include <fstream>
 
 class lcmHandler
 {
@@ -52,13 +54,19 @@ public:
   void cmdCallback(const lcm::ReceiveBuffer* rbuf, const std::string& chan, const lcm_std_msgs::Float32MultiArray* cmd_in);
   void pointCloudCallback(const lcm::ReceiveBuffer *rbuf, const std::string &chan, const lcm_sensor_msgs::PointCloud* cloud);
   void getRobotPoseCallback(const lcm::ReceiveBuffer *rbuf, const std::string &chan,  const lcm_nav_msgs::Odometry* msg);
+  void midImagePointsCallback(const lcm::ReceiveBuffer *rbuf, const std::string &chan,  const lcm_geometry_msgs::Point32MultiArray* msg);
+  void obstHeightPointsCallback(const lcm::ReceiveBuffer *rbuf, const std::string &chan,  const lcm_geometry_msgs::Point32MultiArray* msg);
 
   void skiMapBuilderThread();
   void run();
   void exit();
 
+  void readDataFromTxt();
+
   std::queue<lcm_sensor_msgs::PointCloud> pointCloudBuffer;
   std::queue<lcm_nav_msgs::Odometry> robotPoseBuffer;
+  lcm_geometry_msgs::Point32MultiArray midImagePointsBuffer;
+  std::vector<std::pair<float, float>> obstHeightPoints;
 
   const int pointCloudBufferMaxSize = 3;
   std::mutex *pointcloud_buffer_mutex;
@@ -72,6 +80,8 @@ public:
 
   std::thread *skiMap_builder_thread;
   std::atomic<int> thread_exit_flag;
+
+
 
 private:
     lcm::LCM *node_;
