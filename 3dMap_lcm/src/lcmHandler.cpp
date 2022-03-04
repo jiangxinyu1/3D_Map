@@ -132,7 +132,7 @@ void setRotationMat(Eigen::Matrix3f &RotationMat_ , const float &angleX_, const 
  * @param map skiMap
  * @param map_camera_index 相机在map下的栅格化位置
  */
-void integrateMeasurement1(const std::vector<std::vector<int16_t>>& map_points_index, 
+void integrateMeasurement1(const std::vector<cv::Point3i>& map_points_index,
                                                    VoxelDataColor &voxelInit,
                                                    SKIMAP *&map,
                                                    const std::vector<int16_t>& map_camera_index)
@@ -140,10 +140,7 @@ void integrateMeasurement1(const std::vector<std::vector<int16_t>>& map_points_i
   map->enableConcurrencyAccess(true);
 
   // 单个index的值对应多个 map_point_index
-  std::unordered_map<int , std::vector<std::vector<int16_t>>> voxel_index;
-
-  // std::vector<std::pair<int , std::vector<int16_t>>> voxel_index;
-  // std::vector<voxel_index_node> voxel_index;
+  std::unordered_map<int , std::vector<cv::Point3i>> voxel_index;
 
   // 遍历 map_points_index，更新 hit point 的概率值
   auto updateHitStartTime = getTime();
@@ -156,23 +153,8 @@ void integrateMeasurement1(const std::vector<std::vector<int16_t>>& map_points_i
     map->integrateVoxel(map_points_index[i], &voxelInit , newP);
     if(newP)
     {
-
-#if 1  // for update updataMissVoxel 1    
-      voxel_index[(map_points_index[i][0] ) * 2*Max_Index_Value + map_points_index[i][1]].emplace_back(map_points_index[i]);
-#endif 
-
-#if 0 // for update updataMissVoxel 2
-      std::pair<int ,std::vector<int16_t>> pp((map_points_index[i][0] ) * Max_Index_Value + map_points_index[i][1] ,map_points_index[i]);
-      voxel_index.emplace_back(pp);
-#endif
-
-#if 0 // for update updataMissVoxel 3
-      voxel_index_node tmp;
-      tmp.index = (map_points_index[i][0] ) * Max_Index_Value + map_points_index[i][1];
-      tmp.map_index = map_points_index[i];
-      voxel_index.emplace_back(tmp);
-#endif
-
+      // for update updataMissVoxel 1    
+      voxel_index[(map_points_index[i].x ) * 2*Max_Index_Value + map_points_index[i].y].emplace_back(map_points_index[i]);
     }
   } //for 
 
@@ -185,8 +167,6 @@ void integrateMeasurement1(const std::vector<std::vector<int16_t>>& map_points_i
   auto updateFreeStartTime = getTime();
   
   map->updataMissVoxel1(map_camera_index, voxel_index);
-  // map->updataMissVoxel2(map_camera_index, voxel_index);
-  // map->updataMissVoxel3(map_camera_index, voxel_index);
   
   auto updateFreeEndTime = getTime();
   std::cout << "[integrateMeasurement1] : update free time = " << updateFreeEndTime - updateFreeStartTime << "\n";
@@ -218,13 +198,14 @@ void getMeasurePointsFromPointCloud(const lcm_sensor_msgs::PointCloud &msg,
                                                                      const Eigen::Matrix3f &MapRobotRotationMatrix,
                                                                      const Eigen::Vector3f &MapRobotTransvec,
                                                                      std::vector<ColorPoint> &camera_points,
-                                                                     std::vector<std::vector<int16_t>> &map_points_index,
+                                                                     std::vector<cv::Point3i> &map_points_index,
                                                                      const float & maxDepthThrCamera,
                                                                      const float & heightThrMap,
                                                                      const float &minDepthThrCamera)
 {
-  map_points_index.reserve(msg.points.size());
-  camera_points.reserve(msg.points.size());
+  map_points_index.resize(msg.points.size());
+  // camera_points.resize(msg.points.size());
+
   // 多多已转换到robot系下，这里无序转换
   Eigen::Matrix3f  MapCameraRotationMatrix = MapRobotRotationMatrix;
   Eigen::Vector3f MapCameraTransvec = MapRobotTransvec;
@@ -260,14 +241,20 @@ void getMeasurePointsFromPointCloud(const lcm_sensor_msgs::PointCloud &msg,
                                                               int(map_point[2]*1000),
                                                                ix, iy, iz))
     {
-      std::vector<int16_t> data{ix , iy , iz};
-      map_points_index.emplace_back(data);
-      ColorPoint cp;
-      cp.point.x = msg.points[i].x;
-      cp.point.y = msg.points[i].y;
-      cp.point.z = msg.points[i].z;
-      camera_points.emplace_back(cp);
+      // static std::vector<int16_t> data(3,0);
+      // data[0] = ix; data[1] = iy; data[2] = iz; 
+      // map_points_index.emplace_back(data);
+      // map_points_index[i] = data;
+      // static ColorPoint cp;
+      // cp.point.x = msg.points[i].x;
+      // cp.point.y = msg.points[i].y;
+      // cp.point.z = msg.points[i].z;
+      // camera_points.emplace_back(cp);
+
+      map_points_index.emplace_back(cv::Point3i(ix,iy,iz));
     }
+
+      
   }// for
 
 }
@@ -501,7 +488,6 @@ void lcmHandler::obstHeightPointsCallback(const lcm::ReceiveBuffer *rbuf, const 
   for(int i = 0 ; i < msg->points.size(); i++){
     obstHeightPoints.push_back(std::pair<float, float>(msg->points[i].x , msg->points[i].y));
   }
-  printf("obstHeightPoints.size ===================== %d\n",obstHeightPoints.size());
 }
 
 void lcmHandler::run()
@@ -589,7 +575,7 @@ void lcmHandler::skiMapBuilderThread()
     auto makeMapPointsStartTime = getTime();
 
     SensorMeasurement measurement;
-    std::vector<std::vector<int16_t>> map_points_index;
+    std::vector<cv::Point3i> map_points_index;
 
     // 相机外参
     Eigen::Matrix3f RobotCameraRotationMatrix = Eigen::Matrix3f::Identity(); // camera  在 map 下 pose 
@@ -620,6 +606,9 @@ void lcmHandler::skiMapBuilderThread()
 
     measurement.stamp = curCloud.header.stamp;
 
+    std::cout<<"[skiMapBuilderThread]:getMeasurePointsFromPointCloud time =========== "<<getTime() - makeMapPointsPosition1Time<<"\n";
+    std::cout << "[SensorMeasurement] :" << map_points_index.size() << "\n";
+
     auto makeMapPointsPosition2Time = getTime();
 
     // 将camera在map系下的原点位置存为整数
@@ -634,7 +623,6 @@ void lcmHandler::skiMapBuilderThread()
 
 
     std::cout << "[skiMapBuilderThread]: make map points time =  "<<  makeMapPointsEndTime - makeMapPointsStartTime <<" , ";
-    std::cout << "[SensorMeasurement] :" << measurement.points.size() << "\n";
 
     
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

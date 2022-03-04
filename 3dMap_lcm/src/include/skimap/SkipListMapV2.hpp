@@ -528,7 +528,7 @@ public:
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   virtual void updataMissVoxel1(const std::vector<int16_t>& map_camera_index, 
-                                                       const std::unordered_map<int,std::vector<std::vector<int16_t>>>& voxel_index)
+                                                       const std::unordered_map<int,std::vector<cv::Point3i>>& voxel_index)
   {
     // 以相机在map系下的中心作为起点
     cv::Point2i start(map_camera_index[0] , map_camera_index[1]);
@@ -543,7 +543,7 @@ public:
       }
 
       // 取出当前key值对应 xy-index 
-      cv::Point2i end(it->second[0][0] , it->second[0][1]);
+      cv::Point2i end(it->second[0].x , it->second[0].y);
       std::vector<cv::Point2i> pointset;
       // 通过划线算法获取xy平面点之上的点集
       bresenhamLine(start, end , pointset);
@@ -551,7 +551,7 @@ public:
       std::vector<int16_t> vec_z;
       for(auto cell : it->second)
       {
-        vec_z.emplace_back(cell[2]);
+        vec_z.emplace_back(cell.z);
       }
       std::sort(vec_z.begin() , vec_z.end());
       //  计算
@@ -931,28 +931,28 @@ public:
    * @return true 
    * @return false 
    */  
-  virtual bool integrateVoxel(const std::vector<int16_t>& map_point_index, V *data , bool& newP) 
+  virtual bool integrateVoxel(const cv::Point3i& map_point_index, V *data , bool& newP) 
   {
     if (this->hasConcurrencyAccess())
-      this->_root_list->lock(map_point_index[0]);
+      this->_root_list->lock(map_point_index.x);
 
-    const typename X_NODE::NodeType *ylist = _root_list->find(map_point_index[0]);
+    const typename X_NODE::NodeType *ylist = _root_list->find(map_point_index.x);
     if (ylist == NULL) 
     {
-      ylist = _root_list->insert(map_point_index[0] , new Y_NODE(_min_index_value, _max_index_value));
+      ylist = _root_list->insert(map_point_index.x , new Y_NODE(_min_index_value, _max_index_value));
     }
-    const typename Y_NODE::NodeType *zlist = ylist->value->find(map_point_index[1]);
+    const typename Y_NODE::NodeType *zlist = ylist->value->find(map_point_index.y);
     if (zlist == NULL) 
     {
-      zlist = ylist->value->insert(map_point_index[1],new Z_NODE(z_node_min, z_node_max));
+      zlist = ylist->value->insert(map_point_index.y,new Z_NODE(z_node_min, z_node_max));
     }
     // 如果 z_index 在指定范围内
-    if(map_point_index[2] > z_node_min && map_point_index[2] < z_node_max)
+    if(map_point_index.y > z_node_min && map_point_index.y < z_node_max)
     {
-      const typename Z_NODE::NodeType *voxel = zlist->value->find(map_point_index[2]);
+      const typename Z_NODE::NodeType *voxel = zlist->value->find(map_point_index.z);
       if (voxel == NULL) 
       {
-        voxel = zlist->value->insert(map_point_index[2], new V(data));
+        voxel = zlist->value->insert(map_point_index.y, new V(data));
         voxel->value->tableValue = hit_table_[voxel->value->tableValue];
         voxel->value->update = true;
         voxelsUpdate.emplace_back(voxel);
@@ -975,7 +975,7 @@ public:
     }
     if (this->hasConcurrencyAccess())
     {
-      this->_root_list->unlock(map_point_index[0]);
+      this->_root_list->unlock(map_point_index.x);
     }
     return true;
   }

@@ -88,12 +88,4 @@ private:
     
 };
 
-
-// void integrateMeasurement1(const std::vector<std::vector<int16_t>>& map_points_index, 
-//                                                    std::vector<VoxelDataColor>& voxels, 
-//                                                    SKIMAP *&map,
-//                                                    const std::vector<int16_t>& map_camera_index );
-
-// inline int64_t getTime();
-
 #endif // !LCM_HANDLER_H
